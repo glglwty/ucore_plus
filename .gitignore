@@ -17,3 +17,4 @@
 *.bak
 *.new
 *.org
+.DS_Store

@@ -118,14 +118,38 @@
 #define ELF_PF_W                        2
 #define ELF_PF_R                        4
 
-/* values for elf's dynamic linker */
-#define ELF_AT_NULL						0
-#define ELF_AT_EXEFD					2
-#define	ELF_AT_PHDR						3
-#define ELF_AT_PHENT					4
-#define ELF_AT_PHNUM					5
-#define ELF_AT_BASE						7
-#define ELF_AT_ENTRY					9
+
+//lab9 YOUR CODE: fill the dynamic linker auxilary table
+/* Symbolic values for the entries in the auxiliary table
+ put on the initial stack */
+#define ELF_AT_NULL   0     /* end of vector */
+#define ELF_AT_IGNORE 1     /* entry should be ignored */
+#define ELF_AT_EXECFD 2     /* file descriptor of program */
+#define ELF_AT_PHDR   3     /* program headers for program */
+#define ELF_AT_PHENT  4     /* size of program header entry */
+#define ELF_AT_PHNUM  5     /* number of program headers */
+#define ELF_AT_PAGESZ 6     /* system page size */
+#define ELF_AT_BASE   7     /* base address of interpreter */
+#define ELF_AT_FLAGS  8     /* flags */
+#define ELF_AT_ENTRY  9     /* entry point of program */
+#define ELF_AT_NOTELF 10    /* program is not ELF */
+#define ELF_AT_UID    11    /* real uid */
+#define ELF_AT_EUID   12    /* effective uid */
+#define ELF_AT_GID    13    /* real gid */
+#define ELF_AT_EGID   14    /* effective gid */
+#define ELF_AT_PLATFORM 15  /* string identifying CPU for optimizations */
+#define ELF_AT_HWCAP  16    /* arch dependent hints at CPU capabilities */
+#define ELF_AT_CLKTCK 17    /* frequency at which times() increments */
+/* ELF_AT_* values 18 through 22 are reserved */
+#define ELF_AT_SECURE 23   /* secure mode boolean */
+#define ELF_AT_BASE_PLATFORM 24     /* string identifying real platform, may
+                                 * differ from ELF_AT_PLATFORM. */
+#define ELF_AT_RANDOM 25    /* address of 16 random bytes */
+#define ELF_AT_HWCAP2 26    /* extension of ELF_AT_HWCAP */
+
+#define ELF_AT_EXECFN  31   /* filename of program */
+//lab9 end
+
 
 #ifdef __UCORE_64__
 #define elf_check_arch(x) \

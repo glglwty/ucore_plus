@@ -913,8 +913,8 @@ static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
 	for (phnum = 0; phnum < elf->e_phnum; phnum++) {
 		off_t phoff = elf->e_phoff + sizeof(struct proghdr) * phnum;
 		if ((ret =
-		     load_icode_read(fd, ph, sizeof(struct proghdr),
-				     phoff)) != 0) {
+				load_icode_read(fd, ph, sizeof(struct proghdr), phoff))
+				!= 0) {
 			goto bad_cleanup_mmap;
 		}
 
@@ -946,7 +946,6 @@ static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
 			load_address = ph->p_va + bias;
 		++load_address_flag;
 
-	  /*********************************************/
 		/*
 		   vm_flags = 0;
 		   ptep_set_u_read(&perm);
@@ -1012,7 +1011,6 @@ static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
 		   start += size;
 		   }
 		 */
-	  /**************************************/
 	}
 
 	mm->brk_start = mm->brk = ROUNDUP(mm->brk_start, PGSIZE);
