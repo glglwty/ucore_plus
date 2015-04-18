@@ -98,18 +98,41 @@ copy_thread(uint32_t clone_flags, struct proc_struct *proc,
 }
 
 //Lab9 YOUR CODE: fullfill the stack for the dynamic linker
+
+//use arch prefix, please.
+void arch_setup_user_proc_trapframe(struct trapframe* tf, uintptr_t stacktop, uintptr_t entry) {
+	memset(tf, 0, sizeof(struct trapframe));
+	tf->tf_cs = USER_CS;
+	tf->tf_ds = USER_DS;
+	tf->tf_es = USER_DS;
+	tf->tf_ss = USER_DS;
+	tf->tf_esp = stacktop;
+	tf->tf_eip = entry;
+	tf->tf_eflags = FL_IF;
+}
+
+//TODO: This function should work at least on i386 and x86_64. Consider moving it to arch independent proc.c
 #define DYLIB_DEBUG;
-int arch_init_new_process_context(
+int init_new_process_context(
 		struct proc_struct *proc,
 		struct elfhdr *elf,
-		uint32_t argc,	//uint32_t, actually.
+		uint32_t argc,	//uint32_t, always.
 		char **kargv,
-		uint32_t envc,	//uint32_t, actually.
+		uint32_t envc,	//uint32_t, always.
 		char **kenvv,
 		uint32_t is_dynamic,
-		uintptr_t ldso_entry,
-		uintptr_t load_address,
-		uintptr_t ldso_base) {
+		uintptr_t real_entry,
+		//interpreter or user is possible
+		uintptr_t userp_base,
+		//base of user program. It should be the virtual address of first LOAD elf section.
+		//This is often equal to ph_va of the section.
+		//But since the user program ITSELF might also have been relocated, this field is needed.
+		//Shared object is able to run independly :)
+		//TODO: We should come up of a better name.
+		uintptr_t interp_base
+		//The "actual address of 0" of interpreter.
+		//The elf of interpreter is always start from virtual address 0 before relocation.
+		) {
 
 #ifdef DYLIB_DEBUG
 		//I have to check the assumption when debugging, since nobody did it.
@@ -128,9 +151,9 @@ int arch_init_new_process_context(
 	if (is_dynamic) {
 		size_t aux[] = { //32bit on i386, 64bit on x86_64. I haven't check other platforms.
 				ELF_AT_BASE,
-				ldso_base,
+				interp_base,
 				ELF_AT_PHDR,
-				load_address + elf->e_phoff,
+				userp_base + elf->e_phoff,
 				ELF_AT_PHNUM,
 				elf->e_phnum,
 				ELF_AT_PHENT,
@@ -138,7 +161,7 @@ int arch_init_new_process_context(
 				ELF_AT_PAGESZ,
 				PGSIZE,
 				ELF_AT_ENTRY,
-				elf->e_entry,
+				elf->e_entry,	//TODO: What if we run a shared object directly?
 				ELF_AT_NULL,
 		};
 		uintptr_t auxbase = argbase - sizeof(aux);
@@ -159,23 +182,14 @@ int arch_init_new_process_context(
 	}
 	uintptr_t pargc = argvbase - sizeof(uint32_t);
 	*(uint32_t*)pargc = argc;
-	arch_setup_user_proc_trapframe(proc->tf, pargc, is_dynamic ? ldso_entry : elf->e_entry);
+	arch_setup_user_proc_trapframe(proc->tf, pargc, real_entry);
 	return 0;
 }
 #ifdef DYLIB_DEBUG
 #undef DYLIB_DEBUG
 #endif
 
-void arch_setup_user_proc_trapframe(struct trapframe* tf, uintptr_t stacktop, uintptr_t entry) {
-	memset(tf, 0, sizeof(struct trapframe));
-	tf->tf_cs = USER_CS;
-	tf->tf_ds = USER_DS;
-	tf->tf_es = USER_DS;
-	tf->tf_ss = USER_DS;
-	tf->tf_esp = stacktop;
-	tf->tf_eip = entry;
-	tf->tf_eflags = FL_IF;
-}
+
 
 //end
 

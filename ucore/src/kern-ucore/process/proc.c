@@ -932,6 +932,11 @@ static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
 			goto bad_cleanup_mmap;
 		}
 
+		//lab9 YOUR COMMENT
+		/*
+		 * What the fuck is 0x8000?
+		 */
+
 		if (ph->p_va == 0 && !bias) {
 			bias = 0x00008000;
 		}
@@ -946,71 +951,6 @@ static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
 			load_address = ph->p_va + bias;
 		++load_address_flag;
 
-		/*
-		   vm_flags = 0;
-		   ptep_set_u_read(&perm);
-		   if (ph->p_flags & ELF_PF_X) vm_flags |= VM_EXEC;
-		   if (ph->p_flags & ELF_PF_W) vm_flags |= VM_WRITE;
-		   if (ph->p_flags & ELF_PF_R) vm_flags |= VM_READ;
-		   if (vm_flags & VM_WRITE) ptep_set_u_write(&perm);
-
-		   if ((ret = mm_map(mm, ph->p_va, ph->p_memsz, vm_flags, NULL)) != 0) {
-		   goto bad_cleanup_mmap;
-		   }
-
-		   if (mm->brk_start < ph->p_va + ph->p_memsz) {
-		   mm->brk_start = ph->p_va + ph->p_memsz;
-		   }
-
-		   off_t offset = ph->p_offset;
-		   size_t off, size;
-		   uintptr_t start = ph->p_va, end, la = ROUNDDOWN(start, PGSIZE);
-
-		   end = ph->p_va + ph->p_filesz;
-		   while (start < end) {
-		   if ((page = pgdir_alloc_page(mm->pgdir, la, perm)) == NULL) {
-		   ret = -E_NO_MEM;
-		   goto bad_cleanup_mmap;
-		   }
-		   off = start - la, size = PGSIZE - off, la += PGSIZE;
-		   if (end < la) {
-		   size -= la - end;
-		   }
-		   if ((ret = load_icode_read(fd, page2kva(page) + off, size, offset)) != 0) {
-		   goto bad_cleanup_mmap;
-		   }
-		   start += size, offset += size;
-		   }
-
-		   end = ph->p_va + ph->p_memsz;
-
-		   if (start < la) {
-		   // ph->p_memsz == ph->p_filesz 
-		   if (start == end) {
-		   continue ;
-		   }
-		   off = start + PGSIZE - la, size = PGSIZE - off;
-		   if (end < la) {
-		   size -= la - end;
-		   }
-		   memset(page2kva(page) + off, 0, size);
-		   start += size;
-		   assert((end < la && start == end) || (end >= la && start == la));
-		   }
-
-		   while (start < end) {
-		   if ((page = pgdir_alloc_page(mm->pgdir, la, perm)) == NULL) {
-		   ret = -E_NO_MEM;
-		   goto bad_cleanup_mmap;
-		   }
-		   off = start - la, size = PGSIZE - off, la += PGSIZE;
-		   if (end < la) {
-		   size -= la - end;
-		   }
-		   memset(page2kva(page) + off, 0, size);
-		   start += size;
-		   }
-		 */
 	}
 
 	mm->brk_start = mm->brk = ROUNDUP(mm->brk_start, PGSIZE);
@@ -1024,6 +964,11 @@ static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
 	}
 
 	if (is_dynamic) {
+		//lab9 YOUR CODE
+		if (bias != 0) {
+			panic("bias is not zero. Don't run a so currently.");
+		}
+		//lab9 YOUR CODE
 		elf->e_entry += bias;
 
 		bias = 0;
@@ -1083,6 +1028,7 @@ static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
 			if (interp_ph->p_type != ELF_PT_LOAD) {
 				continue;
 			}
+			//TODO: map_ph can not run in x86_64, we sould fix it in the foreseenable future.
 			assert((ret =
 				map_ph(interp_fd, interp_ph, mm, &bias,
 				       1)) == 0);
@@ -1116,8 +1062,13 @@ static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
 				     bias) < 0)
 		goto bad_cleanup_mmap;
 #else
-	if (init_new_context(current, elf, argc, kargv, envc, kenvp) < 0)
+	//if (init_new_context(current, elf, argc, kargv, envc, kenvp) < 0)
+		//goto bad_cleanup_mmap;
+	if (init_new_process_context(current, elf, argc, kargv, envc, kenvp,
+		     is_dynamic, real_entry, load_address,
+		     bias) < 0)
 		goto bad_cleanup_mmap;
+
 #endif //UCONFIG_BIONIC_LIBC
 	ret = 0;
 out:
