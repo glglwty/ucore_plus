@@ -26,4 +26,6 @@ struct context {
 struct arch_proc_struct {
 };
 
+void arch_setup_user_proc_trapframe(struct trapframe* tf, uintptr_t stacktop, uintptr_t entry);
+
 #endif /* !__ARCH_PROC_H__ */

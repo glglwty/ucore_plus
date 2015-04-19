@@ -4,9 +4,11 @@ _start:
     # set rbp for backtrace
     movq $0x0, %rbp
 
-    # move down the rsp register
-    # since it may cause page fault in backtrace
-    subq $0x20, %rsp
+	mov (%rsp),%rdi
+	lea 8(%rsp),%rsi
+
+	mov (%rsp),%rdi
+	lea 8(%rsp),%rsi
 
     # call user-program function
     call umain

@@ -23,9 +23,9 @@ __alltraps:
     pushq %r15
 
     # push ds, es
-    movw %es, %rax
+    movq %ds, %rax
     pushq %rax
-    movw %ds, %rax
+    movq %es, %rax
     pushq %rax
 
     # swap in kernel GS BASE if we come from user space
@@ -54,9 +54,9 @@ __trapret:
 
     # pop ds, es
     popq %rax
-    movq %rax, %ds
+    movw %eax, %ds
     popq %rax
-    movq %rax, %es
+    movw %eax, %es
 
     popq %r15
     popq %r14

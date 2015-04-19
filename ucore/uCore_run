@@ -11,6 +11,7 @@ while getopts "chgd:t:" opt; do
     case $opt in
         c)
             COMMAND_LINE_MODE=y
+	    DEBUG_MODE=y
             ;;
         d)
             BUILD_DIR=$OPTARG
@@ -126,7 +127,7 @@ case $UCONFIG_ARCH in
                 EXTRA_OPT+=" -monitor stdio -serial file:$BUILD_DIR/serial.log$TEST_POSTFIX"
             fi
             if [[ $DEBUG_MODE = y ]]; then
-                EXTRA_OPT+=" -s -S"
+                EXTRA_OPT+=" -s"
             fi
         fi
         exec $QEMU -m 512 \

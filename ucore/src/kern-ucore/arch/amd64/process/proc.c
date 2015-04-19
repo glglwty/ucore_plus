@@ -9,6 +9,22 @@
 void forkret(void);
 void forkrets(struct trapframe *tf);
 
+//lab9 YOUR CODE
+
+void arch_setup_user_proc_trapframe(struct trapframe* tf, uintptr_t stacktop,
+		uintptr_t entry) {
+	memset(tf, 0, sizeof(struct trapframe));
+	tf->tf_cs = USER_CS;
+	tf->tf_ds = USER_DS;
+	tf->tf_es = USER_DS;
+	tf->tf_ss = USER_DS;
+	tf->tf_rsp = stacktop;
+	tf->tf_rip = entry;
+	tf->tf_rflags = FL_IF;
+}
+//lab9
+
+
 // alloc_proc - create a proc struct and init fields
 struct proc_struct *alloc_proc(void)
 {

@@ -860,6 +860,93 @@ bad_cleanup_mmap:
 
 //#endif //UCONFIG_BIONIC_LIBC
 
+//lab9 YOUR CODE
+//TODO: only i386 and x86_64 works now! Fuck other platforms!
+//TODO: a know bug in mm. use strncpy(...,...,PGSIZE) will cause a unhandled pgfault in x86_64.
+//		I don't know why. X86 behaves well in this senario.
+
+
+#define DYLIB_DEBUG
+//This function doesn't check the integrity of argv and envv.
+//kargv and kenvv must be ending strings with size smaller than PGSIZE.
+int init_new_process_context(
+		struct proc_struct *proc,
+		struct elfhdr *elf,
+		size_t argc,
+		char **kargv,
+		size_t envc,
+		char **kenvv,
+		uint32_t is_dynamic,
+		uintptr_t real_entry,
+		//interpreter or user is possible
+		uintptr_t userp_base,
+		//base of user program. It should be the virtual address of first LOAD elf section.
+		//This is often equal to ph_va of the section.
+		//But since the user program ITSELF might also have been relocated, this field is needed.
+		//Hint: Shared object is able to run independly :)
+		//TODO: We should come up of a better name.
+		uintptr_t interp_base
+		//The "actual address of 0" of interpreter.
+		//The elf of interpreter is always start from virtual address 0 before relocation.
+		) {
+	kprintf("initializing context for the process, size of uintptr_t: %lu, sizeof size_t: %lu\n",
+			sizeof(uintptr_t), sizeof(size_t));
+#ifdef DYLIB_DEBUG
+		//I have to check the assumption when debugging, since nobody did it.
+		assert(elf->e_phentsize == sizeof(struct proghdr));
+#endif
+
+	if (elf->e_phentsize != sizeof(struct proghdr)) {
+		return -1;	//Incompatible elf.
+	}
+	if (argc + envc >= USTACKPAGE / 2) {
+		return -1;	//Too many arguments.
+	}
+
+	uintptr_t envbase = USTACKTOP - envc * PGSIZE, argbase = envbase - argc * PGSIZE;
+	uintptr_t argvbase, envvbase;
+	size_t aux[] = { //32bit on i386, 64bit on x86_64. I haven't check other platforms.
+			ELF_AT_BASE,
+			interp_base,
+			ELF_AT_PHDR,
+			userp_base + elf->e_phoff,
+			ELF_AT_PHNUM,
+			elf->e_phnum,
+			ELF_AT_PHENT,
+			elf->e_phentsize,
+			ELF_AT_PAGESZ,
+			PGSIZE,
+			ELF_AT_ENTRY,
+			elf->e_entry,	//TODO: What if we run a shared object directly?
+			ELF_AT_NULL,
+	};
+	uintptr_t auxbase = argbase - sizeof(aux);
+	memcpy((void*)auxbase, aux, sizeof(aux));
+	envvbase = auxbase - (envc + 1) * sizeof(char*);
+	argvbase = envvbase - (argc + 1) * sizeof(char*);
+	kprintf("caculate argvbase envvbase auxbase done argc:%u, envc:%u\n", argc, envc);
+	//setup args
+	size_t iter;
+	for (iter = 0; iter < argc; iter ++) {
+		((char**)argvbase)[iter] = strcpy((char*)(argbase + iter * PGSIZE), kargv[iter]);
+	}
+	((char**)argvbase)[argc] = NULL;
+	for (iter = 0; iter < envc; iter ++) {
+		((char**)envvbase)[iter] = strcpy((char*)(envbase + iter * PGSIZE), kenvv[iter]);
+	}
+	((char**)envvbase)[envc] = NULL;
+	uintptr_t pargc = argvbase - sizeof(size_t);
+	*(size_t*)pargc = argc;
+	arch_setup_user_proc_trapframe(proc->tf, pargc, real_entry);
+	kprintf("context set\n");
+	return 0;
+}
+#ifdef DYLIB_DEBUG
+#undef DYLIB_DEBUG
+#endif
+//lab9 end
+
+
 static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
 {
 	assert(argc >= 0 && argc <= EXEC_MAX_ARG_NUM);
@@ -899,7 +986,7 @@ static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
 //#ifdef UCONFIG_BIONIC_LIBC
 	real_entry = elf->e_entry;
 
-	uint32_t load_address, load_address_flag = 0;
+	uintptr_t load_address, load_address_flag = 0;
 //#endif //UCONFIG_BIONIC_LIBC
 
 	struct proghdr __ph, *ph = &__ph;
@@ -908,7 +995,7 @@ static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
 
 //#ifdef UCONFIG_BIONIC_LIBC
 	uint32_t is_dynamic = 0, interp_idx;
-	uint32_t bias = 0;
+	uintptr_t bias = 0;
 //#endif //UCONFIG_BIONIC_LIBC
 	for (phnum = 0; phnum < elf->e_phnum; phnum++) {
 		off_t phoff = elf->e_phoff + sizeof(struct proghdr) * phnum;
@@ -1056,6 +1143,7 @@ static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
 	if (!is_dynamic) {
 		real_entry += bias;
 	}
+
 #ifdef UCONFIG_BIONIC_LIBC
 	if (init_new_context_dynamic(current, elf, argc, kargv, envc, kenvp,
 				     is_dynamic, real_entry, load_address,
