@@ -35,6 +35,7 @@ void idt_init(void)
 		SETGATE(idt[i], 1, GD_KTEXT, __vectors[i], DPL_KERNEL);
 	}
 	SETGATE(idt[T_SYSCALL], 1, GD_KTEXT, __vectors[T_SYSCALL], DPL_USER);
+	SETGATE(idt[T_SYSCALL_LINUX], 1, GD_KTEXT, __vectors[T_SYSCALL_LINUX], DPL_USER);
 	lidt(&idt_pd);
 }
 
@@ -68,6 +69,9 @@ static const char *trapname(int trapno)
 	}
 	if (trapno == T_SYSCALL) {
 		return "System call";
+	}
+	if (trapno == T_SYSCALL_LINUX) {
+		return "Linux System call";
 	}
 	if (trapno >= IRQ_OFFSET && trapno < IRQ_OFFSET + 16) {
 		return "Hardware Interrupt";
@@ -181,6 +185,9 @@ static void trap_dispatch(struct trapframe *tf)
 				do_exit(-E_KILLED);
 			}
 		}
+		break;
+	case T_SYSCALL_LINUX:
+		syscall_linux();
 		break;
 	case T_SYSCALL:
 		syscall();

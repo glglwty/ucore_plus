@@ -363,7 +363,7 @@ static uint32_t sys_umount(uint32_t arg[])
 }
 
 static uint32_t(*syscalls[]) (uint32_t arg[]) = {
-[SYS_exit] sys_exit,
+		[SYS_exit] sys_exit,
 	    [SYS_fork] sys_fork,
 	    [SYS_wait] sys_wait,
 	    [SYS_exec] sys_exec,
@@ -412,12 +412,37 @@ static uint32_t(*syscalls[]) (uint32_t arg[]) = {
 	    [SYS_init_module] sys_init_module,
 	    [SYS_cleanup_module] sys_cleanup_module,
 	    [SYS_list_module] sys_list_module,
-	    [SYS_mount] sys_mount,[SYS_umount] sys_umount};
+	    [SYS_mount] sys_mount,
+		[SYS_umount] sys_umount
+};
 
 #define NUM_SYSCALLS        ((sizeof(syscalls)) / (sizeof(syscalls[0])))
 
 void syscall(void)
 {
+	struct trapframe *tf = current->tf;
+	uint32_t arg[5];
+	int num = tf->tf_regs.reg_eax;
+	if (num >= 0 && num < NUM_SYSCALLS) {
+		if (syscalls[num] != NULL) {
+			arg[0] = tf->tf_regs.reg_edx;
+			arg[1] = tf->tf_regs.reg_ecx;
+			arg[2] = tf->tf_regs.reg_ebx;
+			arg[3] = tf->tf_regs.reg_edi;
+			arg[4] = tf->tf_regs.reg_esi;
+			tf->tf_regs.reg_eax = syscalls[num] (arg);
+			return;
+		}
+	}
+	print_trapframe(tf);
+	panic("undefined syscall %d, pid = %d, name = %s.\n",
+	      num, current->pid, current->name);
+}
+
+
+void syscall_linux(void)
+{
+	kprintf("linux syscall\n");
 	struct trapframe *tf = current->tf;
 	uint32_t arg[5];
 	int num = tf->tf_regs.reg_eax;
