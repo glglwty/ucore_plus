@@ -543,6 +543,19 @@ static uint32_t __sys_linux_mmap2(uint32_t arg[])
 	}
 }
 
+static uint32_t
+sys_getppid(uint32_t arg[]) {
+	struct proc_struct *parent = current->parent;
+	if (!parent)
+		return 0;
+	return parent->pid;
+}
+static uint32_t sys_linux_sigaction(uint32_t arg[])
+{
+	return do_sigaction((int)arg[0], (const struct sigaction *)arg[1],
+			    (struct sigaction *)arg[2]);
+}
+
 
 static uint32_t (*syscalls_linux[])(uint32_t arg[]) = {
 	[1]			sys_exit_thread,
@@ -567,8 +580,8 @@ static uint32_t (*syscalls_linux[])(uint32_t arg[]) = {
 	[45]                    sys_brk_bionic,
 	//TODO:54
 	[63]                    sys_dup,
-	//[64]                    sys_getppid_bionic,
-	//[67]                    sys_sigaction_bionic,
+	[64]                    sys_getppid,
+	[67]                    sys_linux_sigaction,//sys_sigaction_bionic,
 	//[72]                    sys_sigsuspend_bionic,
 	//[73]                    sys_sigpending_bionic,
 	//[78]                    sys_gettimeofday_bionic,
