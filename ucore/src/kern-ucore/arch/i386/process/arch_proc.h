@@ -23,5 +23,9 @@ struct context {
 
 struct arch_proc_struct {
 };
+<<<<<<< HEAD
 void arch_setup_user_proc_trapframe(struct trapframe* tf, uintptr_t stacktop, uintptr_t entry);
+=======
+
+>>>>>>> parent of d161027... I am under the hill of syscall
 #endif /* !__ARCH_X86_INCLUDE_ARCH_PROC_H__ */

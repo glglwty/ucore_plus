@@ -98,10 +98,82 @@ copy_thread(uint32_t clone_flags, struct proc_struct *proc,
 }
 
 //Lab9 YOUR CODE: fullfill the stack for the dynamic linker
+<<<<<<< HEAD
 
 //use arch prefix, please.
 void arch_setup_user_proc_trapframe(struct trapframe* tf, uintptr_t stacktop,
 		uintptr_t entry) {
+=======
+#define DYLIB_DEBUG;
+int arch_init_new_process_context(
+		struct proc_struct *proc,
+		struct elfhdr *elf,
+		uint32_t argc,	//uint32_t, actually.
+		char **kargv,
+		uint32_t envc,	//uint32_t, actually.
+		char **kenvv,
+		uint32_t is_dynamic,
+		uintptr_t ldso_entry,
+		uintptr_t load_address,
+		uintptr_t ldso_base) {
+
+#ifdef DYLIB_DEBUG
+		//I have to check the assumption when debugging, since nobody did it.
+		assert(elf->e_phentsize == sizeof(struct proghdr));
+#endif
+
+	if (elf->e_phentsize != sizeof(struct proghdr)) {
+		return -1;	//Incompatible elf.
+	}
+	if (argc + envc >= USTACKPAGE / 2) {
+		return -1;	//Too many arguments.
+	}
+
+	uintptr_t envbase = USTACKTOP - envc * PGSIZE, argbase = envbase - argc * PGSIZE;
+	uintptr_t argvbase, envvbase;
+	if (is_dynamic) {
+		size_t aux[] = { //32bit on i386, 64bit on x86_64. I haven't check other platforms.
+				ELF_AT_BASE,
+				ldso_base,
+				ELF_AT_PHDR,
+				load_address + elf->e_phoff,
+				ELF_AT_PHNUM,
+				elf->e_phnum,
+				ELF_AT_PHENT,
+				elf->e_phentsize,
+				ELF_AT_PAGESZ,
+				PGSIZE,
+				ELF_AT_ENTRY,
+				elf->e_entry,
+				ELF_AT_NULL,
+		};
+		uintptr_t auxbase = argbase - sizeof(aux);
+		memcpy(auxbase, aux, sizeof(aux));
+		envvbase = auxbase - (envc + 1) * sizeof(char*);
+		argvbase = envvbase - (argc + 1) * sizeof(char*);
+	} else {
+		envvbase = argbase - (envc + 1) * sizeof(char*);
+		argvbase = envvbase - (argc + 1) * sizeof(char*);
+	}
+	//setup args
+	uint32_t iter;
+	for (iter = 0; iter < argc; iter ++) {
+		((char**)argvbase)[iter] = strncpy(argbase + iter * PGSIZE, kargv[iter], PGSIZE - 1);
+	}
+	for (iter = 0; iter < envc; iter ++) {
+		((char**)envvbase)[iter] = strncpy(envbase + iter * PGSIZE, kenvv[iter], PGSIZE - 1);
+	}
+	uintptr_t pargc = argvbase - sizeof(uint32_t);
+	*(uint32_t*)pargc = argc;
+	arch_setup_user_proc_trapframe(proc->tf, pargc, is_dynamic ? ldso_entry : elf->e_entry);
+	return 0;
+}
+#ifdef DYLIB_DEBUG
+#undef DYLIB_DEBUG
+#endif
+
+void arch_setup_user_proc_trapframe(struct trapframe* tf, uintptr_t stacktop, uintptr_t entry) {
+>>>>>>> parent of d161027... I am under the hill of syscall
 	memset(tf, 0, sizeof(struct trapframe));
 	tf->tf_cs = USER_CS;
 	tf->tf_ds = USER_DS;
