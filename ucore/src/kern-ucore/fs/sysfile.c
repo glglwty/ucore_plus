@@ -221,6 +221,12 @@ int sysfile_fstat(int fd, struct stat *__stat)
 	return ret;
 }
 
+int
+sysfile_stat(const char *path, struct stat *__stat) {
+    int fd = sysfile_open(path, O_RDONLY);
+    return sysfile_fstat(fd, __stat);
+}
+
 int sysfile_linux_fstat(int fd, struct linux_stat __user * buf)
 {
 	struct mm_struct *mm = current->mm;

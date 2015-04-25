@@ -457,6 +457,20 @@ sys_seek_bionic(uint32_t arg[]) {
 	return sysfile_seek_return_pos(fd, pos, whence);
 }
 
+static uint32_t
+sys_access_bionic(uint32_t arg[]) {
+	const char *path = (char*)arg[0];
+#ifdef DEBUG
+cprintf("sys_access(): %s\n", path);
+#endif
+	struct stat dummy;
+	return sysfile_stat(path, &dummy);
+}
+
+static uint32_t
+sys_sigkill_bionic(uint32_t arg[]) {
+	return do_sigkill((int)arg[0], (int)arg[1]);
+}
 
 static uint32_t (*syscalls_linux[])(uint32_t arg[]) = {
 	[1]			sys_exit_thread,
@@ -472,8 +486,8 @@ static uint32_t (*syscalls_linux[])(uint32_t arg[]) = {
 	[12]                    sys_chdir,
 	[19]                    sys_seek_bionic,
 	[20]                    sys_getpid,
-	//[33]                    sys_access_bionic,
-	//[37]                    sys_sigkill_bionic,
+	[33]                    sys_access_bionic,
+	[37]                    sys_sigkill_bionic,
 	[38]                    sys_rename,
 	[39]                    sys_mkdir,
 	//[41]                    sys_dup_bionic,
