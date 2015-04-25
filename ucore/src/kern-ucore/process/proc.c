@@ -28,50 +28,50 @@
 #include <spinlock.h>
 
 /* ------------- process/thread mechanism design&implementation -------------
-(an simplified Linux process/thread mechanism )
-introduction:
-  ucore implements a simple process/thread mechanism. process contains the independent memory sapce, at least one threads
-for execution, the kernel data(for management), processor state (for context switch), files(in lab6), etc. ucore needs to
-manage all these details efficiently. In ucore, a thread is just a special kind of process(share process's memory).
-------------------------------
-process state       :     meaning               -- reason
-    PROC_UNINIT     :   uninitialized           -- alloc_proc
-    PROC_SLEEPING   :   sleeping                -- try_free_pages, do_wait, do_sleep
-    PROC_RUNNABLE   :   runnable(maybe running) -- proc_init, wakeup_proc, 
-    PROC_ZOMBIE     :   almost dead             -- do_exit
+ (an simplified Linux process/thread mechanism )
+ introduction:
+ ucore implements a simple process/thread mechanism. process contains the independent memory sapce, at least one threads
+ for execution, the kernel data(for management), processor state (for context switch), files(in lab6), etc. ucore needs to
+ manage all these details efficiently. In ucore, a thread is just a special kind of process(share process's memory).
+ ------------------------------
+ process state       :     meaning               -- reason
+ PROC_UNINIT     :   uninitialized           -- alloc_proc
+ PROC_SLEEPING   :   sleeping                -- try_free_pages, do_wait, do_sleep
+ PROC_RUNNABLE   :   runnable(maybe running) -- proc_init, wakeup_proc,
+ PROC_ZOMBIE     :   almost dead             -- do_exit
 
------------------------------
-process state changing:
-                                            
-  alloc_proc                                 RUNNING
-      +                                   +--<----<--+
-      +                                   + proc_run +
-      V                                   +-->---->--+ 
-PROC_UNINIT -- proc_init/wakeup_proc --> PROC_RUNNABLE -- try_free_pages/do_wait/do_sleep --> PROC_SLEEPING --
-                                           A      +                                                           +
-                                           |      +--- do_exit --> PROC_ZOMBIE                                +
-                                           +                                                                  + 
-                                           -----------------------wakeup_proc----------------------------------
------------------------------
-process relations
-parent:           proc->parent  (proc is children)
-children:         proc->cptr    (proc is parent)
-older sibling:    proc->optr    (proc is younger sibling)
-younger sibling:  proc->yptr    (proc is older sibling)
------------------------------
-related syscall for process:
-SYS_exit        : process exit,                           -->do_exit
-SYS_fork        : create child process, dup mm            -->do_fork-->wakeup_proc
-SYS_wait        : wait process                            -->do_wait
-SYS_exec        : after fork, process execute a program   -->load a program and refresh the mm
-SYS_clone       : create child thread                     -->do_fork-->wakeup_proc
-SYS_yield       : process flag itself need resecheduling, -- proc->need_sched=1, then scheduler will rescheule this process
-SYS_sleep       : process sleep                           -->do_sleep 
-SYS_kill        : kill process                            -->do_kill-->proc->flags |= PF_EXITING
-                                                                 -->wakeup_proc-->do_wait-->do_exit   
-SYS_getpid      : get the process's pid
+ -----------------------------
+ process state changing:
 
-*/
+ alloc_proc                                 RUNNING
+ +                                   +--<----<--+
+ +                                   + proc_run +
+ V                                   +-->---->--+
+ PROC_UNINIT -- proc_init/wakeup_proc --> PROC_RUNNABLE -- try_free_pages/do_wait/do_sleep --> PROC_SLEEPING --
+ A      +                                                           +
+ |      +--- do_exit --> PROC_ZOMBIE                                +
+ +                                                                  +
+ -----------------------wakeup_proc----------------------------------
+ -----------------------------
+ process relations
+ parent:           proc->parent  (proc is children)
+ children:         proc->cptr    (proc is parent)
+ older sibling:    proc->optr    (proc is younger sibling)
+ younger sibling:  proc->yptr    (proc is older sibling)
+ -----------------------------
+ related syscall for process:
+ SYS_exit        : process exit,                           -->do_exit
+ SYS_fork        : create child process, dup mm            -->do_fork-->wakeup_proc
+ SYS_wait        : wait process                            -->do_wait
+ SYS_exec        : after fork, process execute a program   -->load a program and refresh the mm
+ SYS_clone       : create child thread                     -->do_fork-->wakeup_proc
+ SYS_yield       : process flag itself need resecheduling, -- proc->need_sched=1, then scheduler will rescheule this process
+ SYS_sleep       : process sleep                           -->do_sleep
+ SYS_kill        : kill process                            -->do_kill-->proc->flags |= PF_EXITING
+ -->wakeup_proc-->do_wait-->do_exit
+ SYS_getpid      : get the process's pid
+
+ */
 
 struct proc_struct *initproc;
 #ifdef UCONFIG_SWAP
@@ -99,8 +99,7 @@ static int __do_exit(void);
 static int __do_kill(struct proc_struct *proc, int error_code);
 
 // set_proc_name - set the name of proc
-char *set_proc_name(struct proc_struct *proc, const char *name)
-{
+char *set_proc_name(struct proc_struct *proc, const char *name) {
 	memset(proc->name, 0, sizeof(proc->name));
 	return memcpy(proc->name, name, PROC_NAME_LEN);
 }
@@ -116,8 +115,7 @@ char *get_proc_name(struct proc_struct *proc)
 #endif
 
 // set_links - set the relation links of process
-static void set_links(struct proc_struct *proc)
-{
+static void set_links(struct proc_struct *proc) {
 	list_add(&proc_list, &(proc->list_link));
 	proc->yptr = NULL;
 	if ((proc->optr = proc->parent->cptr) != NULL) {
@@ -128,8 +126,7 @@ static void set_links(struct proc_struct *proc)
 }
 
 // remove_links - clean the relation links of process
-static void remove_links(struct proc_struct *proc)
-{
+static void remove_links(struct proc_struct *proc) {
 	list_del(&(proc->list_link));
 	if (proc->optr != NULL) {
 		proc->optr->yptr = proc->yptr;
@@ -143,8 +140,7 @@ static void remove_links(struct proc_struct *proc)
 }
 
 // get_pid - alloc a unique pid for process
-static int get_pid(void)
-{
+static int get_pid(void) {
 	static_assert(MAX_PID > MAX_PROCESS);
 	struct proc_struct *proc;
 	list_entry_t *list = &proc_list, *le;
@@ -154,10 +150,8 @@ static int get_pid(void)
 		goto inside;
 	}
 	if (last_pid >= next_safe) {
-inside:
-		next_safe = MAX_PID;
-repeat:
-		le = list;
+		inside: next_safe = MAX_PID;
+		repeat: le = list;
 		while ((le = list_next(le)) != list) {
 			proc = le2proc(le, list_link);
 			if (proc->pid == last_pid) {
@@ -168,8 +162,7 @@ repeat:
 					next_safe = MAX_PID;
 					goto repeat;
 				}
-			} else if (proc->pid > last_pid
-				   && next_safe > proc->pid) {
+			} else if (proc->pid > last_pid && next_safe > proc->pid) {
 				next_safe = proc->pid;
 			}
 		}
@@ -179,8 +172,7 @@ repeat:
 
 // proc_run - make process "proc" running on cpu
 // NOTE: before call switch_to, should load  base addr of "proc"'s new PDT
-void proc_run(struct proc_struct *proc)
-{
+void proc_run(struct proc_struct *proc) {
 	if (proc != current) {
 		bool intr_flag;
 		struct proc_struct *prev = current, *next = proc;
@@ -202,20 +194,17 @@ void proc_run(struct proc_struct *proc)
 }
 
 // hash_proc - add proc into proc hash_list
-static void hash_proc(struct proc_struct *proc)
-{
+static void hash_proc(struct proc_struct *proc) {
 	list_add(hash_list + pid_hashfn(proc->pid), &(proc->hash_link));
 }
 
 // unhash_proc - delete proc from proc hash_list
-static void unhash_proc(struct proc_struct *proc)
-{
+static void unhash_proc(struct proc_struct *proc) {
 	list_del(&(proc->hash_link));
 }
 
 // find_proc - find proc frome proc hash_list according to pid
-struct proc_struct *find_proc(int pid)
-{
+struct proc_struct *find_proc(int pid) {
 	if (0 < pid && pid < MAX_PID) {
 		list_entry_t *list = hash_list + pid_hashfn(pid), *le = list;
 		while ((le = list_next(le)) != list) {
@@ -229,8 +218,7 @@ struct proc_struct *find_proc(int pid)
 }
 
 // setup_kstack - alloc pages with size KSTACKPAGE as process kernel stack
-static int setup_kstack(struct proc_struct *proc)
-{
+static int setup_kstack(struct proc_struct *proc) {
 	struct Page *page = alloc_pages(KSTACKPAGE);
 	if (page != NULL) {
 		proc->kstack = (uintptr_t) page2kva(page);
@@ -240,16 +228,14 @@ static int setup_kstack(struct proc_struct *proc)
 }
 
 // put_kstack - free the memory space of process kernel stack
-static void put_kstack(struct proc_struct *proc)
-{
-	free_pages(kva2page((void *)(proc->kstack)), KSTACKPAGE);
+static void put_kstack(struct proc_struct *proc) {
+	free_pages(kva2page((void *) (proc->kstack)), KSTACKPAGE);
 }
 
 // setup_pgdir - alloc one page as PDT
 // XXX, PDT size != PGSIZE!!!
 #ifndef ARCH_ARM
-static int setup_pgdir(struct mm_struct *mm)
-{
+static int setup_pgdir(struct mm_struct *mm) {
 	struct Page *page;
 	if ((page = alloc_page()) == NULL) {
 		return -E_NO_MEM;
@@ -262,8 +248,7 @@ static int setup_pgdir(struct mm_struct *mm)
 }
 
 // put_pgdir - free the memory space of PDT
-static void put_pgdir(struct mm_struct *mm)
-{
+static void put_pgdir(struct mm_struct *mm) {
 	free_page(kva2page(mm->pgdir));
 }
 #else
@@ -295,8 +280,7 @@ static void put_pgdir(struct mm_struct *mm)
 #endif
 
 // de_thread - delete this thread "proc" from thread_group list
-static void de_thread(struct proc_struct *proc)
-{
+static void de_thread(struct proc_struct *proc) {
 	if (!list_empty(&(proc->thread_group))) {
 		bool intr_flag;
 		local_intr_save(intr_flag);
@@ -310,15 +294,13 @@ static void de_thread(struct proc_struct *proc)
 }
 
 // next_thread - get the next thread "proc" from thread_group list
-struct proc_struct *next_thread(struct proc_struct *proc)
-{
+struct proc_struct *next_thread(struct proc_struct *proc) {
 	return le2proc(list_next(&(proc->thread_group)), thread_group);
 }
 
 // copy_mm - process "proc" duplicate OR share process "current"'s mm according clone_flags
 //         - if clone_flags & CLONE_VM, then "share" ; else "duplicate"
-static int copy_mm(uint32_t clone_flags, struct proc_struct *proc)
-{
+static int copy_mm(uint32_t clone_flags, struct proc_struct *proc) {
 	struct mm_struct *mm, *oldmm = current->mm;
 
 	/* current is a kernel thread */
@@ -356,8 +338,7 @@ static int copy_mm(uint32_t clone_flags, struct proc_struct *proc)
 		goto bad_dup_cleanup_mmap;
 	}
 
-good_mm:
-	if (mm != oldmm) {
+	good_mm: if (mm != oldmm) {
 		mm->brk_start = oldmm->brk_start;
 		mm->brk = oldmm->brk;
 		bool intr_flag;
@@ -371,17 +352,13 @@ good_mm:
 	proc->mm = mm;
 	set_pgdir(proc, mm->pgdir);
 	return 0;
-bad_dup_cleanup_mmap:
-	exit_mmap(mm);
+	bad_dup_cleanup_mmap: exit_mmap(mm);
 	put_pgdir(mm);
-bad_pgdir_cleanup_mm:
-	mm_destroy(mm);
-bad_mm:
-	return ret;
+	bad_pgdir_cleanup_mm: mm_destroy(mm);
+	bad_mm: return ret;
 }
 
-static int copy_sem(uint32_t clone_flags, struct proc_struct *proc)
-{
+static int copy_sem(uint32_t clone_flags, struct proc_struct *proc) {
 	sem_queue_t *sem_queue, *old_sem_queue = current->sem_queue;
 
 	/* current is kernel thread */
@@ -407,20 +384,16 @@ static int copy_sem(uint32_t clone_flags, struct proc_struct *proc)
 		goto bad_dup_cleanup_sem;
 	}
 
-good_sem_queue:
-	sem_queue_count_inc(sem_queue);
+	good_sem_queue: sem_queue_count_inc(sem_queue);
 	proc->sem_queue = sem_queue;
 	return 0;
 
-bad_dup_cleanup_sem:
-	exit_sem_queue(sem_queue);
+	bad_dup_cleanup_sem: exit_sem_queue(sem_queue);
 	sem_queue_destroy(sem_queue);
-bad_sem_queue:
-	return ret;
+	bad_sem_queue: return ret;
 }
 
-static void put_sem_queue(struct proc_struct *proc)
-{
+static void put_sem_queue(struct proc_struct *proc) {
 	sem_queue_t *sem_queue = proc->sem_queue;
 	if (sem_queue != NULL) {
 		if (sem_queue_count_dec(sem_queue) == 0) {
@@ -430,8 +403,7 @@ static void put_sem_queue(struct proc_struct *proc)
 	}
 }
 
-static int copy_signal(uint32_t clone_flags, struct proc_struct *proc)
-{
+static int copy_signal(uint32_t clone_flags, struct proc_struct *proc) {
 	struct signal_struct *signal, *oldsig = current->signal_info.signal;
 
 	if (oldsig == NULL) {
@@ -449,19 +421,16 @@ static int copy_signal(uint32_t clone_flags, struct proc_struct *proc)
 		goto bad_signal;
 	}
 
-good_signal:
-	signal_count_inc(signal);
+	good_signal: signal_count_inc(signal);
 	proc->signal_info.signal = signal;
 	return 0;
 
-bad_signal:
-	return ret;
+	bad_signal: return ret;
 }
 
 // copy_thread - setup the trapframe on the  process's kernel stack top and
 //             - setup the kernel entry point and stack of process
-static void put_signal(struct proc_struct *proc)
-{
+static void put_signal(struct proc_struct *proc) {
 	struct signal_struct *sig = proc->signal_info.signal;
 	if (sig != NULL) {
 		if (signal_count_dec(sig) == 0) {
@@ -471,8 +440,7 @@ static void put_signal(struct proc_struct *proc)
 	proc->signal_info.signal = NULL;
 }
 
-static int copy_sighand(uint32_t clone_flags, struct proc_struct *proc)
-{
+static int copy_sighand(uint32_t clone_flags, struct proc_struct *proc) {
 	struct sighand_struct *sighand, *oldsh = current->signal_info.sighand;
 
 	if (oldsh == NULL) {
@@ -489,17 +457,14 @@ static int copy_sighand(uint32_t clone_flags, struct proc_struct *proc)
 		goto bad_sighand;
 	}
 
-good_sighand:
-	sighand_count_inc(sighand);
+	good_sighand: sighand_count_inc(sighand);
 	proc->signal_info.sighand = sighand;
 	return 0;
 
-bad_sighand:
-	return ret;
+	bad_sighand: return ret;
 }
 
-static void put_sighand(struct proc_struct *proc)
-{
+static void put_sighand(struct proc_struct *proc) {
 	struct sighand_struct *sh = proc->signal_info.sighand;
 	if (sh != NULL) {
 		if (sighand_count_dec(sh) == 0) {
@@ -509,8 +474,7 @@ static void put_sighand(struct proc_struct *proc)
 	proc->signal_info.sighand = NULL;
 }
 
-static int copy_fs(uint32_t clone_flags, struct proc_struct *proc)
-{
+static int copy_fs(uint32_t clone_flags, struct proc_struct *proc) {
 	struct fs_struct *fs_struct, *old_fs_struct = current->fs_struct;
 	assert(old_fs_struct != NULL);
 
@@ -528,19 +492,15 @@ static int copy_fs(uint32_t clone_flags, struct proc_struct *proc)
 		goto bad_dup_cleanup_fs;
 	}
 
-good_fs_struct:
-	fs_count_inc(fs_struct);
+	good_fs_struct: fs_count_inc(fs_struct);
 	proc->fs_struct = fs_struct;
 	return 0;
 
-bad_dup_cleanup_fs:
-	fs_destroy(fs_struct);
-bad_fs_struct:
-	return ret;
+	bad_dup_cleanup_fs: fs_destroy(fs_struct);
+	bad_fs_struct: return ret;
 }
 
-static void put_fs(struct proc_struct *proc)
-{
+static void put_fs(struct proc_struct *proc) {
 	struct fs_struct *fs_struct = proc->fs_struct;
 	if (fs_struct != NULL) {
 		if (fs_count_dec(fs_struct) == 0) {
@@ -550,8 +510,7 @@ static void put_fs(struct proc_struct *proc)
 }
 
 // may_killed - check if current thread should be killed, should be called before go back to user space
-void may_killed(void)
-{
+void may_killed(void) {
 	// killed by other process, already set exit_code and call __do_exit directly
 	if (current->flags & PF_EXITING) {
 		__do_exit();
@@ -563,8 +522,7 @@ void may_killed(void)
 //    2. call setup_kstack to allocate a kernel stack for child process
 //    3. call copy_mm to dup OR share mm according clone_flag
 //    4. call wakup_proc to make the new child process RUNNABLE 
-int do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf)
-{
+int do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
 	int ret = -E_NO_FREE_PROC;
 	struct proc_struct *proc;
 	if (nr_process >= MAX_PROCESS) {
@@ -576,7 +534,7 @@ int do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf)
 	if ((proc = alloc_proc()) == NULL) {
 		goto fork_out;
 	}
-	if(clone_flags & __CLONE_PINCPU)
+	if (clone_flags & __CLONE_PINCPU)
 		proc->flags |= PF_PINCPU;
 
 	proc->parent = current;
@@ -619,8 +577,7 @@ int do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf)
 		hash_proc(proc);
 		set_links(proc);
 		if (clone_flags & CLONE_THREAD) {
-			list_add_before(&(current->thread_group),
-					&(proc->thread_group));
+			list_add_before(&(current->thread_group), &(proc->thread_group));
 			proc->gid = current->gid;
 		} else {
 			proc->gid = proc->pid;
@@ -631,20 +588,13 @@ int do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf)
 	wakeup_proc(proc);
 
 	ret = proc->pid;
-fork_out:
-	return ret;
-bad_fork_cleanup_sighand:
-	put_sighand(proc);
-bad_fork_cleanup_signal:
-	put_signal(proc);
-bad_fork_cleanup_fs:
-	put_fs(proc);
-bad_fork_cleanup_sem:
-	put_sem_queue(proc);
-bad_fork_cleanup_kstack:
-	put_kstack(proc);
-bad_fork_cleanup_proc:
-	kfree(proc);
+	fork_out: return ret;
+	bad_fork_cleanup_sighand: put_sighand(proc);
+	bad_fork_cleanup_signal: put_signal(proc);
+	bad_fork_cleanup_fs: put_fs(proc);
+	bad_fork_cleanup_sem: put_sem_queue(proc);
+	bad_fork_cleanup_kstack: put_kstack(proc);
+	bad_fork_cleanup_proc: kfree(proc);
 	goto fork_out;
 }
 
@@ -652,8 +602,7 @@ bad_fork_cleanup_proc:
 //   1. call exit_mmap & put_pgdir & mm_destroy to free the almost all memory space of process
 //   2. set process' state as PROC_ZOMBIE, then call wakeup_proc(parent) to ask parent reclaim itself.
 //   3. call scheduler to switch to other process
-static int __do_exit(void)
-{
+static int __do_exit(void) {
 	if (current == idleproc) {
 		panic("idleproc exit.\n");
 	}
@@ -723,12 +672,11 @@ static int __do_exit(void)
 
 	schedule();
 	panic("__do_exit will not return!! %d %d.\n", current->pid,
-	      current->exit_code);
+			current->exit_code);
 }
 
 // do_exit - kill a thread group, called by syscall or trap handler
-int do_exit(int error_code)
-{
+int do_exit(int error_code) {
 	bool intr_flag;
 	local_intr_save(intr_flag);
 	{
@@ -743,14 +691,12 @@ int do_exit(int error_code)
 }
 
 // do_exit_thread - kill a single thread
-int do_exit_thread(int error_code)
-{
+int do_exit_thread(int error_code) {
 	current->exit_code = error_code;
 	return __do_exit();
 }
 
-static int load_icode_read(int fd, void *buf, size_t len, off_t offset)
-{
+static int load_icode_read(int fd, void *buf, size_t len, off_t offset) {
 	int ret;
 	if ((ret = sysfile_seek(fd, offset, LSEEK_SET)) != 0) {
 		return ret;
@@ -762,10 +708,8 @@ static int load_icode_read(int fd, void *buf, size_t len, off_t offset)
 }
 
 //#ifdef UCONFIG_BIONIC_LIBC
-static int
-map_ph(int fd, struct proghdr *ph, struct mm_struct *mm, uint32_t * pbias,
-       uint32_t linker)
-{
+static int map_ph(int fd, struct proghdr *ph, struct mm_struct *mm,
+		uint32_t * pbias, uint32_t linker) {
 	int ret = 0;
 	struct Page *page;
 	uint32_t vm_flags = 0;
@@ -793,8 +737,7 @@ map_ph(int fd, struct proghdr *ph, struct mm_struct *mm, uint32_t * pbias,
 			*pbias = bias;
 	}
 
-	if ((ret =
-	     mm_map(mm, ph->p_va + bias, ph->p_memsz, vm_flags, NULL)) != 0) {
+	if ((ret = mm_map(mm, ph->p_va + bias, ph->p_memsz, vm_flags, NULL)) != 0) {
 		goto bad_cleanup_mmap;
 	}
 
@@ -816,9 +759,8 @@ map_ph(int fd, struct proghdr *ph, struct mm_struct *mm, uint32_t * pbias,
 		if (end < la) {
 			size -= la - end;
 		}
-		if ((ret =
-		     load_icode_read(fd, page2kva(page) + off, size,
-				     offset)) != 0) {
+		if ((ret = load_icode_read(fd, page2kva(page) + off, size, offset))
+				!= 0) {
 			goto bad_cleanup_mmap;
 		}
 		start += size, offset += size;
@@ -836,8 +778,7 @@ map_ph(int fd, struct proghdr *ph, struct mm_struct *mm, uint32_t * pbias,
 		}
 		memset(page2kva(page) + off, 0, size);
 		start += size;
-		assert((end < la && start == end)
-		       || (end >= la && start == la));
+		assert((end < la && start == end) || (end >= la && start == la));
 	}
 
 	while (start < end) {
@@ -852,10 +793,8 @@ map_ph(int fd, struct proghdr *ph, struct mm_struct *mm, uint32_t * pbias,
 		memset(page2kva(page) + off, 0, size);
 		start += size;
 	}
-normal_exit:
-	return 0;
-bad_cleanup_mmap:
-	return ret;
+	normal_exit: return 0;
+	bad_cleanup_mmap: return ret;
 }
 
 //#endif //UCONFIG_BIONIC_LIBC
@@ -865,19 +804,12 @@ bad_cleanup_mmap:
 //TODO: a know bug in mm. use strncpy(...,...,PGSIZE) will cause a unhandled pgfault in x86_64.
 //		I don't know why. X86 behaves well in this senario.
 
-
 #define DYLIB_DEBUG
 //This function doesn't check the integrity of argv and envv.
 //kargv and kenvv must be ending strings with size smaller than PGSIZE.
-int init_new_process_context(
-		struct proc_struct *proc,
-		struct elfhdr *elf,
-		size_t argc,
-		char **kargv,
-		size_t envc,
-		char **kenvv,
-		uint32_t is_dynamic,
-		uintptr_t real_entry,
+int init_new_process_context(struct proc_struct *proc, struct elfhdr *elf,
+		size_t argc, char **kargv, size_t envc, char **kenvv,
+		uint32_t is_dynamic, uintptr_t real_entry,
 		//interpreter or user is possible
 		uintptr_t userp_base,
 		//base of user program. It should be the virtual address of first LOAD elf section.
@@ -889,54 +821,53 @@ int init_new_process_context(
 		//The "actual address of 0" of interpreter.
 		//The elf of interpreter is always start from virtual address 0 before relocation.
 		) {
-	kprintf("initializing context for the process, size of uintptr_t: %lu, sizeof size_t: %lu\n",
+	kprintf(
+			"initializing context for the process, size of uintptr_t: %lu, sizeof size_t: %lu\n",
 			sizeof(uintptr_t), sizeof(size_t));
 #ifdef DYLIB_DEBUG
-		//I have to check the assumption when debugging, since nobody did it.
-		assert(elf->e_phentsize == sizeof(struct proghdr));
+	//I have to check the assumption when debugging, since nobody did it.
+	//kprintf("%u %u\n", elf->e_phentsize, sizeof(struct proghdr));
+	assert(elf->e_phentsize == sizeof(struct proghdr));
 #endif
 
-	if (elf->e_phentsize != sizeof(struct proghdr)) {
-		return -1;	//Incompatible elf.
-	}
+	//if (elf->e_phentsize != sizeof(struct proghdr)) {
+//		return -1;	//Incompatible elf.
+//	}
 	if (argc + envc >= USTACKPAGE / 2) {
 		return -1;	//Too many arguments.
 	}
 
-	uintptr_t envbase = USTACKTOP - envc * PGSIZE, argbase = envbase - argc * PGSIZE;
+	uintptr_t envbase = USTACKTOP - envc * PGSIZE, argbase = envbase
+			- argc * PGSIZE;
 	uintptr_t argvbase, envvbase;
 	size_t aux[] = { //32bit on i386, 64bit on x86_64. I haven't check other platforms.
-			ELF_AT_BASE,
-			interp_base,
-			ELF_AT_PHDR,
-			userp_base + elf->e_phoff,
-			ELF_AT_PHNUM,
-			elf->e_phnum,
-			ELF_AT_PHENT,
-			elf->e_phentsize,
-			ELF_AT_PAGESZ,
-			PGSIZE,
-			ELF_AT_ENTRY,
-			elf->e_entry,	//TODO: What if we run a shared object directly?
-			ELF_AT_NULL,
-	};
+			ELF_AT_BASE, interp_base,
+			ELF_AT_PHDR, userp_base + elf->e_phoff,
+			ELF_AT_PHNUM, elf->e_phnum,
+			ELF_AT_PHENT, sizeof(struct proghdr),
+			ELF_AT_PAGESZ, PGSIZE,
+			ELF_AT_ENTRY, elf->e_entry,	//TODO: What if we run a shared object directly?
+					ELF_AT_NULL, };
 	uintptr_t auxbase = argbase - sizeof(aux);
-	memcpy((void*)auxbase, aux, sizeof(aux));
+	memcpy((void*) auxbase, aux, sizeof(aux));
 	envvbase = auxbase - (envc + 1) * sizeof(char*);
 	argvbase = envvbase - (argc + 1) * sizeof(char*);
-	kprintf("caculate argvbase envvbase auxbase done argc:%u, envc:%u\n", argc, envc);
+	kprintf("caculate argvbase envvbase auxbase done argc:%u, envc:%u\n", argc,
+			envc);
 	//setup args
 	size_t iter;
-	for (iter = 0; iter < argc; iter ++) {
-		((char**)argvbase)[iter] = strcpy((char*)(argbase + iter * PGSIZE), kargv[iter]);
+	for (iter = 0; iter < argc; iter++) {
+		((char**) argvbase)[iter] = strcpy((char*) (argbase + iter * PGSIZE),
+				kargv[iter]);
 	}
-	((char**)argvbase)[argc] = NULL;
-	for (iter = 0; iter < envc; iter ++) {
-		((char**)envvbase)[iter] = strcpy((char*)(envbase + iter * PGSIZE), kenvv[iter]);
+	((char**) argvbase)[argc] = NULL;
+	for (iter = 0; iter < envc; iter++) {
+		((char**) envvbase)[iter] = strcpy((char*) (envbase + iter * PGSIZE),
+				kenvv[iter]);
 	}
-	((char**)envvbase)[envc] = NULL;
+	((char**) envvbase)[envc] = NULL;
 	uintptr_t pargc = argvbase - sizeof(size_t);
-	*(size_t*)pargc = argc;
+	*(size_t*) pargc = argc;
 	arch_setup_user_proc_trapframe(proc->tf, pargc, real_entry);
 	kprintf("context set\n");
 	return 0;
@@ -946,9 +877,7 @@ int init_new_process_context(
 #endif
 //lab9 end
 
-
-static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
-{
+static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp) {
 	assert(argc >= 0 && argc <= EXEC_MAX_ARG_NUM);
 	assert(envc >= 0 && envc <= EXEC_MAX_ENV_NUM);
 	if (current->mm != NULL) {
@@ -999,8 +928,7 @@ static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
 //#endif //UCONFIG_BIONIC_LIBC
 	for (phnum = 0; phnum < elf->e_phnum; phnum++) {
 		off_t phoff = elf->e_phoff + sizeof(struct proghdr) * phnum;
-		if ((ret =
-				load_icode_read(fd, ph, sizeof(struct proghdr), phoff))
+		if ((ret = load_icode_read(fd, ph, sizeof(struct proghdr), phoff))
 				!= 0) {
 			goto bad_cleanup_mmap;
 		}
@@ -1029,8 +957,7 @@ static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
 		}
 
 		if ((ret = map_ph(fd, ph, mm, &bias, 0)) != 0) {
-			kprintf("load address: 0x%08x size: %d\n", ph->p_va,
-				ph->p_memsz);
+			kprintf("load address: 0x%08x size: %d\n", ph->p_va, ph->p_memsz);
 			goto bad_cleanup_mmap;
 		}
 
@@ -1044,9 +971,8 @@ static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
 
 	/* setup user stack */
 	vm_flags = VM_READ | VM_WRITE | VM_STACK;
-	if ((ret =
-	     mm_map(mm, USTACKTOP - USTACKSIZE, USTACKSIZE, vm_flags,
-		    NULL)) != 0) {
+	if ((ret = mm_map(mm, USTACKTOP - USTACKSIZE, USTACKSIZE, vm_flags,
+	NULL)) != 0) {
 		goto bad_cleanup_mmap;
 	}
 
@@ -1060,37 +986,33 @@ static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
 
 		bias = 0;
 
-		off_t phoff =
-		    elf->e_phoff + sizeof(struct proghdr) * interp_idx;
-		if ((ret =
-		     load_icode_read(fd, ph, sizeof(struct proghdr),
-				     phoff)) != 0) {
+		off_t phoff = elf->e_phoff + sizeof(struct proghdr) * interp_idx;
+		if ((ret = load_icode_read(fd, ph, sizeof(struct proghdr), phoff))
+				!= 0) {
 			goto bad_cleanup_mmap;
 		}
 
-		char *interp_path = (char *)kmalloc(ph->p_filesz);
+		char *interp_path = (char *) kmalloc(ph->p_filesz);
 		load_icode_read(fd, interp_path, ph->p_filesz, ph->p_offset);
 
 		int interp_fd = sysfile_open(interp_path, O_RDONLY);
 		assert(interp_fd >= 0);
 		struct elfhdr interp___elf, *interp_elf = &interp___elf;
-		assert((ret =
-			load_icode_read(interp_fd, interp_elf,
-					sizeof(struct elfhdr), 0)) == 0);
+		assert(
+				(ret = load_icode_read(interp_fd, interp_elf,
+						sizeof(struct elfhdr), 0)) == 0);
 		assert(interp_elf->e_magic == ELF_MAGIC);
 
 		struct proghdr interp___ph, *interp_ph = &interp___ph;
 		uint32_t interp_phnum;
 		uint32_t va_min = 0xffffffff, va_max = 0;
 		for (interp_phnum = 0; interp_phnum < interp_elf->e_phnum;
-		     ++interp_phnum) {
-			off_t interp_phoff =
-			    interp_elf->e_phoff +
-			    sizeof(struct proghdr) * interp_phnum;
-			assert((ret =
-				load_icode_read(interp_fd, interp_ph,
-						sizeof(struct proghdr),
-						interp_phoff)) == 0);
+				++interp_phnum) {
+			off_t interp_phoff = interp_elf->e_phoff
+					+ sizeof(struct proghdr) * interp_phnum;
+			assert(
+					(ret = load_icode_read(interp_fd, interp_ph,
+							sizeof(struct proghdr), interp_phoff)) == 0);
 			if (interp_ph->p_type != ELF_PT_LOAD) {
 				continue;
 			}
@@ -1104,21 +1026,17 @@ static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
 		bias = ROUNDUP(bias, PGSIZE);
 
 		for (interp_phnum = 0; interp_phnum < interp_elf->e_phnum;
-		     ++interp_phnum) {
-			off_t interp_phoff =
-			    interp_elf->e_phoff +
-			    sizeof(struct proghdr) * interp_phnum;
-			assert((ret =
-				load_icode_read(interp_fd, interp_ph,
-						sizeof(struct proghdr),
-						interp_phoff)) == 0);
+				++interp_phnum) {
+			off_t interp_phoff = interp_elf->e_phoff
+					+ sizeof(struct proghdr) * interp_phnum;
+			assert(
+					(ret = load_icode_read(interp_fd, interp_ph,
+							sizeof(struct proghdr), interp_phoff)) == 0);
 			if (interp_ph->p_type != ELF_PT_LOAD) {
 				continue;
 			}
 			//TODO: map_ph can not run in x86_64, we sould fix it in the foreseenable future.
-			assert((ret =
-				map_ph(interp_fd, interp_ph, mm, &bias,
-				       1)) == 0);
+			assert((ret = map_ph(interp_fd, interp_ph, mm, &bias, 1)) == 0);
 		}
 
 		real_entry = interp_elf->e_entry + bias;
@@ -1146,42 +1064,33 @@ static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
 
 #ifdef UCONFIG_BIONIC_LIBC
 	if (init_new_context_dynamic(current, elf, argc, kargv, envc, kenvp,
-				     is_dynamic, real_entry, load_address,
-				     bias) < 0)
-		goto bad_cleanup_mmap;
+					is_dynamic, real_entry, load_address,
+					bias) < 0)
+	goto bad_cleanup_mmap;
 #else
 	//if (init_new_context(current, elf, argc, kargv, envc, kenvp) < 0)
-		//goto bad_cleanup_mmap;
+	//goto bad_cleanup_mmap;
 	if (init_new_process_context(current, elf, argc, kargv, envc, kenvp,
-		     is_dynamic, real_entry, load_address,
-		     bias) < 0)
+			is_dynamic, real_entry, load_address, bias) < 0)
 		goto bad_cleanup_mmap;
 
 #endif //UCONFIG_BIONIC_LIBC
 	ret = 0;
-out:
-	return ret;
-bad_cleanup_mmap:
-	exit_mmap(mm);
-bad_elf_cleanup_pgdir:
-	put_pgdir(mm);
-bad_pgdir_cleanup_mm:
-	mm_destroy(mm);
-bad_mm:
-	goto out;
+	out: return ret;
+	bad_cleanup_mmap: exit_mmap(mm);
+	bad_elf_cleanup_pgdir: put_pgdir(mm);
+	bad_pgdir_cleanup_mm: mm_destroy(mm);
+	bad_mm: goto out;
 }
 
-static void put_kargv(int argc, char **kargv)
-{
+static void put_kargv(int argc, char **kargv) {
 	while (argc > 0) {
 		kfree(kargv[--argc]);
 	}
 }
 
-static int
-copy_kargv(struct mm_struct *mm, char **kargv, const char **argv, int max_argc,
-	   int *argc_store)
-{
+static int copy_kargv(struct mm_struct *mm, char **kargv, const char **argv,
+		int max_argc, int *argc_store) {
 	int i, ret = -E_INVAL;
 	if (!argv) {
 		*argc_store = 0;
@@ -1199,7 +1108,7 @@ copy_kargv(struct mm_struct *mm, char **kargv, const char **argv, int max_argc,
 		}
 #if 0
 		if (!copy_from_user(mm, &argv_k, argv + i, sizeof(char *), 0) ||
-		    !copy_string(mm, buffer, argv_k, EXEC_MAX_ARG_LEN + 1)) {
+				!copy_string(mm, buffer, argv_k, EXEC_MAX_ARG_LEN + 1)) {
 			kfree(buffer);
 			goto failed_cleanup;
 		}
@@ -1213,15 +1122,12 @@ copy_kargv(struct mm_struct *mm, char **kargv, const char **argv, int max_argc,
 	*argc_store = i;
 	return 0;
 
-failed_nomem:
-	ret = -E_NO_MEM;
-failed_cleanup:
-	put_kargv(i, kargv);
+	failed_nomem: ret = -E_NO_MEM;
+	failed_cleanup: put_kargv(i, kargv);
 	return ret;
 }
 
-int do_execve(const char *filename, const char **argv, const char **envp)
-{
+int do_execve(const char *filename, const char **argv, const char **envp) {
 	static_assert(EXEC_MAX_ARG_LEN >= FS_MAX_FPATH_LEN);
 
 	struct mm_struct *mm = current->mm;
@@ -1237,7 +1143,7 @@ int do_execve(const char *filename, const char **argv, const char **envp)
 #if 0
 	if (name == NULL) {
 		snprintf(local_name, sizeof(local_name), "<null> %d",
-			 current->pid);
+				current->pid);
 	} else {
 		if (!copy_string(mm, local_name, name, sizeof(local_name))) {
 			unlock_mm(mm);
@@ -1262,10 +1168,10 @@ int do_execve(const char *filename, const char **argv, const char **envp)
 	kprintf("## fn %s\n", filename);
 	kprintf("## argc %d\n", argc);
 	for (i = 0; i < argc; i++)
-		kprintf("## %08x %s\n", kargv[i], kargv[i]);
+	kprintf("## %08x %s\n", kargv[i], kargv[i]);
 	kprintf("## envc %d\n", envc);
 	for (i = 0; i < envc; i++)
-		kprintf("## %08x %s\n", kenvp[i], kenvp[i]);
+	kprintf("## %08x %s\n", kenvp[i], kenvp[i]);
 #endif
 	//path = argv[0];
 	//copy_from_user (mm, &path, argv, sizeof (char*), 0);
@@ -1274,7 +1180,6 @@ int do_execve(const char *filename, const char **argv, const char **envp)
 
 	/* linux never do this */
 	//fs_closeall(current->fs_struct);
-
 	/* sysfile_open will check the first argument path, thus we have to use a user-space pointer, and argv[0] may be incorrect */
 
 	int fd;
@@ -1331,18 +1236,16 @@ int do_execve(const char *filename, const char **argv, const char **envp)
 	put_kargv(envc, kenvp);
 	return 0;
 
-execve_exit:
-	put_kargv(argc, kargv);
+	execve_exit: put_kargv(argc, kargv);
 	put_kargv(envc, kenvp);
-/* exec should return -1 if failed */
+	/* exec should return -1 if failed */
 	//return ret;
 	do_exit(ret);
 	panic("already exit: %e.\n", ret);
 }
 
 // do_yield - ask the scheduler to reschedule
-int do_yield(void)
-{
+int do_yield(void) {
 	current->need_resched = 1;
 	return 0;
 }
@@ -1350,8 +1253,7 @@ int do_yield(void)
 // do_wait - wait one OR any children with PROC_ZOMBIE state, and free memory space of kernel stack
 //         - proc struct of this child.
 // NOTE: only after do_wait function, all resources of the child proces are free.
-int do_wait(int pid, int *code_store)
-{
+int do_wait(int pid, int *code_store) {
 	struct mm_struct *mm = current->mm;
 	if (code_store != NULL) {
 		if (!user_mem_check(mm, (uintptr_t) code_store, sizeof(int), 1)) {
@@ -1361,8 +1263,7 @@ int do_wait(int pid, int *code_store)
 
 	struct proc_struct *proc, *cproc;
 	bool intr_flag, haskid;
-repeat:
-	cproc = current;
+	repeat: cproc = current;
 	haskid = 0;
 	if (pid != 0) {
 		proc = find_proc(pid);
@@ -1399,8 +1300,7 @@ repeat:
 	}
 	return -E_BAD_PROC;
 
-found:
-	if (proc == idleproc || proc == initproc) {
+	found: if (proc == idleproc || proc == initproc) {
 		panic("wait idleproc or initproc.\n");
 	}
 	int exit_code = proc->exit_code;
@@ -1417,8 +1317,7 @@ found:
 	if (code_store != NULL) {
 		lock_mm(mm);
 		{
-			if (!copy_to_user
-			    (mm, code_store, &exit_code, sizeof(int))) {
+			if (!copy_to_user(mm, code_store, &exit_code, sizeof(int))) {
 				ret = -E_INVAL;
 			}
 		}
@@ -1427,8 +1326,7 @@ found:
 	return ret;
 }
 
-int do_linux_waitpid(int pid, int *code_store)
-{
+int do_linux_waitpid(int pid, int *code_store) {
 	struct mm_struct *mm = current->mm;
 	if (code_store != NULL) {
 		if (!user_mem_check(mm, (uintptr_t) code_store, sizeof(int), 1)) {
@@ -1438,8 +1336,7 @@ int do_linux_waitpid(int pid, int *code_store)
 
 	struct proc_struct *proc, *cproc;
 	bool intr_flag, haskid;
-repeat:
-	cproc = current;
+	repeat: cproc = current;
 	haskid = 0;
 	if (pid > 0) {
 		proc = find_proc(pid);
@@ -1457,7 +1354,7 @@ repeat:
 		}
 	}
 	/* we do NOT have group id, so.. */
-	else if (pid == 0 || pid == -1) {	/* pid == 0 */
+	else if (pid == 0 || pid == -1) { /* pid == 0 */
 		do {
 			proc = cproc->cptr;
 			for (; proc != NULL; proc = proc->optr) {
@@ -1481,8 +1378,7 @@ repeat:
 	}
 	return -E_BAD_PROC;
 
-found:
-	if (proc == idleproc || proc == initproc) {
+	found: if (proc == idleproc || proc == initproc) {
 		panic("wait idleproc or initproc.\n");
 	}
 	int exit_code = proc->exit_code;
@@ -1511,8 +1407,7 @@ found:
 }
 
 // __do_kill - kill a process with PCB by set this process's flags with PF_EXITING
-static int __do_kill(struct proc_struct *proc, int error_code)
-{
+static int __do_kill(struct proc_struct *proc, int error_code) {
 	if (!(proc->flags & PF_EXITING)) {
 		proc->flags |= PF_EXITING;
 		proc->exit_code = error_code;
@@ -1525,8 +1420,7 @@ static int __do_kill(struct proc_struct *proc, int error_code)
 }
 
 // do_kill - kill process with pid
-int do_kill(int pid, int error_code)
-{
+int do_kill(int pid, int error_code) {
 	struct proc_struct *proc;
 	if ((proc = find_proc(pid)) != NULL) {
 		return __do_kill(proc, error_code);
@@ -1536,8 +1430,7 @@ int do_kill(int pid, int error_code)
 
 // do_brk - adjust(increase/decrease) the size of process heap, align with page size
 // NOTE: will change the process vma
-int do_brk(uintptr_t * brk_store)
-{
+int do_brk(uintptr_t * brk_store) {
 	struct mm_struct *mm = current->mm;
 	if (mm == NULL) {
 		panic("kernel thread call sys_brk!!.\n");
@@ -1576,15 +1469,13 @@ int do_brk(uintptr_t * brk_store)
 		}
 	}
 	mm->brk = newbrk;
-out_unlock:
-	copy_to_user(mm, brk_store, &mm->brk, sizeof(uintptr_t));
+	out_unlock: copy_to_user(mm, brk_store, &mm->brk, sizeof(uintptr_t));
 	unlock_mm(mm);
 	return 0;
 }
 
 /* poring from linux */
-int do_linux_brk(uintptr_t brk)
-{
+int do_linux_brk(uintptr_t brk) {
 	uint32_t newbrk, oldbrk, retval;
 	struct mm_struct *mm = current->mm;
 	uint32_t min_brk;
@@ -1619,61 +1510,58 @@ int do_linux_brk(uintptr_t brk)
 	if (mm_brk(mm, oldbrk, newbrk - oldbrk))
 		goto out_unlock;
 
-set_brk:
-	mm->brk = brk;
-out_unlock:
-	retval = mm->brk;
+	set_brk: mm->brk = brk;
+	out_unlock: retval = mm->brk;
 	unlock_mm(mm);
 	return retval;
 }
 
 /* from x86 bionic porting */
 /*
-int
-do_linux_brk(uintptr_t brk) {
-    struct mm_struct *mm = current->mm;
-    if (mm == NULL) {
-        panic("kernel thread call sys_brk!!.\n");
-    }
+ int
+ do_linux_brk(uintptr_t brk) {
+ struct mm_struct *mm = current->mm;
+ if (mm == NULL) {
+ panic("kernel thread call sys_brk!!.\n");
+ }
 
-    if (brk == 0) {
-        return mm->brk_start;
-    }
+ if (brk == 0) {
+ return mm->brk_start;
+ }
 
-    lock_mm(mm);
-    if (brk < mm->brk_start) {
-        goto out_unlock;
-    }
-    uintptr_t newbrk = ROUNDUP(brk, PGSIZE), oldbrk = mm->brk;
-    assert(oldbrk % PGSIZE == 0);
-    if (newbrk == oldbrk) {
-        goto out_unlock;
-    }
-    if (newbrk < oldbrk) {
-        if (mm_unmap(mm, newbrk, oldbrk - newbrk) != 0) {
-            goto out_unlock;
-        }
-    }
-    else {
-        if (find_vma_intersection(mm, oldbrk, newbrk + PGSIZE) != NULL) {
-            goto out_unlock;
-        }
-        if (mm_brk(mm, oldbrk, newbrk - oldbrk) != 0) {
-            goto out_unlock;
-        }
-    }
-    mm->brk = newbrk;
-out_unlock:
-    unlock_mm(mm);
-    return newbrk;
-}
-*/
+ lock_mm(mm);
+ if (brk < mm->brk_start) {
+ goto out_unlock;
+ }
+ uintptr_t newbrk = ROUNDUP(brk, PGSIZE), oldbrk = mm->brk;
+ assert(oldbrk % PGSIZE == 0);
+ if (newbrk == oldbrk) {
+ goto out_unlock;
+ }
+ if (newbrk < oldbrk) {
+ if (mm_unmap(mm, newbrk, oldbrk - newbrk) != 0) {
+ goto out_unlock;
+ }
+ }
+ else {
+ if (find_vma_intersection(mm, oldbrk, newbrk + PGSIZE) != NULL) {
+ goto out_unlock;
+ }
+ if (mm_brk(mm, oldbrk, newbrk - oldbrk) != 0) {
+ goto out_unlock;
+ }
+ }
+ mm->brk = newbrk;
+ out_unlock:
+ unlock_mm(mm);
+ return newbrk;
+ }
+ */
 
 // do_sleep - set current process state to sleep and add timer with "time"
 //          - then call scheduler. if process run again, delete timer first.
 //      time is jiffies
-int do_sleep(unsigned int time)
-{
+int do_sleep(unsigned int time) {
 	assert(!ucore_in_interrupt());
 	if (time == 0) {
 		return 0;
@@ -1693,8 +1581,7 @@ int do_sleep(unsigned int time)
 }
 
 int do_linux_sleep(const struct linux_timespec __user * req,
-		   struct linux_timespec __user * rem)
-{
+		struct linux_timespec __user * rem) {
 	struct mm_struct *mm = current->mm;
 	struct linux_timespec kts;
 	lock_mm(mm);
@@ -1725,9 +1612,8 @@ int do_linux_sleep(const struct linux_timespec __user * req,
 	return ret;
 }
 
-int
-__do_linux_mmap(uintptr_t __user * addr_store, size_t len, uint32_t mmap_flags)
-{
+int __do_linux_mmap(uintptr_t __user * addr_store, size_t len,
+		uint32_t mmap_flags) {
 	struct mm_struct *mm = current->mm;
 	if (mm == NULL) {
 		panic("kernel thread call mmap!!.\n");
@@ -1741,8 +1627,8 @@ __do_linux_mmap(uintptr_t __user * addr_store, size_t len, uint32_t mmap_flags)
 	uintptr_t addr;
 	addr = *addr_store;
 
-	uintptr_t start = ROUNDDOWN(addr, PGSIZE), end =
-	    ROUNDUP(addr + len, PGSIZE);
+	uintptr_t start = ROUNDDOWN(addr, PGSIZE), end = ROUNDUP(addr + len,
+			PGSIZE);
 	addr = start, len = end - start;
 
 	uint32_t vm_flags = VM_READ;
@@ -1764,13 +1650,11 @@ __do_linux_mmap(uintptr_t __user * addr_store, size_t len, uint32_t mmap_flags)
 	if ((ret = mm_map(mm, addr, len, vm_flags, NULL)) == 0) {
 		*addr_store = addr;
 	}
-out_unlock:
-	return ret;
+	out_unlock: return ret;
 }
 
 // do_mmap - add a vma with addr, len and flags(VM_READ/M_WRITE/VM_STACK)
-int do_mmap(uintptr_t __user * addr_store, size_t len, uint32_t mmap_flags)
-{
+int do_mmap(uintptr_t __user * addr_store, size_t len, uint32_t mmap_flags) {
 	struct mm_struct *mm = current->mm;
 	if (mm == NULL) {
 		panic("kernel thread call mmap!!.\n");
@@ -1788,8 +1672,8 @@ int do_mmap(uintptr_t __user * addr_store, size_t len, uint32_t mmap_flags)
 		goto out_unlock;
 	}
 
-	uintptr_t start = ROUNDDOWN(addr, PGSIZE), end =
-	    ROUNDUP(addr + len, PGSIZE);
+	uintptr_t start = ROUNDDOWN(addr, PGSIZE), end = ROUNDUP(addr + len,
+			PGSIZE);
 	addr = start, len = end - start;
 
 	uint32_t vm_flags = VM_READ;
@@ -1807,14 +1691,12 @@ int do_mmap(uintptr_t __user * addr_store, size_t len, uint32_t mmap_flags)
 	if ((ret = mm_map(mm, addr, len, vm_flags, NULL)) == 0) {
 		copy_to_user(mm, addr_store, &addr, sizeof(uintptr_t));
 	}
-out_unlock:
-	unlock_mm(mm);
+	out_unlock: unlock_mm(mm);
 	return ret;
 }
 
 // do_munmap - delete vma with addr & len
-int do_munmap(uintptr_t addr, size_t len)
-{
+int do_munmap(uintptr_t addr, size_t len) {
 	struct mm_struct *mm = current->mm;
 	if (mm == NULL) {
 		panic("kernel thread call munmap!!.\n");
@@ -1837,7 +1719,7 @@ int do_mprotect(void *addr, size_t len, int prot)
 {
 
 	/*
-	   return 0; 
+	 return 0;
 	 */
 
 	struct mm_struct *mm = current->mm;
@@ -1867,16 +1749,16 @@ int do_mprotect(void *addr, size_t len, int prot)
 			}
 		} else {
 			uintptr_t this_end =
-			    (end <= vma->vm_end) ? end : vma->vm_end;
+			(end <= vma->vm_end) ? end : vma->vm_end;
 			uintptr_t this_start =
-			    (start >= vma->vm_start) ? start : vma->vm_start;
+			(start >= vma->vm_start) ? start : vma->vm_start;
 
 			struct mapped_file_struct mfile = vma->mfile;
 			mfile.offset += this_start - vma->vm_start;
 			uint32_t flags = vma->vm_flags;
 			if ((ret =
-			     mm_unmap_keep_pages(mm, this_start,
-						 this_end - this_start)) != 0) {
+							mm_unmap_keep_pages(mm, this_start,
+									this_end - this_start)) != 0) {
 				goto out;
 			}
 			if (prot & PROT_WRITE) {
@@ -1885,8 +1767,8 @@ int do_mprotect(void *addr, size_t len, int prot)
 				flags &= ~VM_WRITE;
 			}
 			if ((ret =
-			     mm_map(mm, this_start, this_end - this_start,
-				    flags, &vma)) != 0) {
+							mm_map(mm, this_start, this_end - this_start,
+									flags, &vma)) != 0) {
 				goto out;
 			}
 			vma->mfile = mfile;
@@ -1898,11 +1780,11 @@ int do_mprotect(void *addr, size_t len, int prot)
 		ret = 0;
 
 		if (end <= last_end)
-			break;
+		break;
 		start = last_end;
 	}
 
-out:
+	out:
 	unlock_mm(mm);
 	return ret;
 }
@@ -1910,8 +1792,7 @@ out:
 #endif //UCONFIG_BIONIC_LIBC
 
 // do_shmem - create a share memory with addr, len, flags(VM_READ/M_WRITE/VM_STACK)
-int do_shmem(uintptr_t * addr_store, size_t len, uint32_t mmap_flags)
-{
+int do_shmem(uintptr_t * addr_store, size_t len, uint32_t mmap_flags) {
 	struct mm_struct *mm = current->mm;
 	if (mm == NULL) {
 		panic("kernel thread call mmap!!.\n");
@@ -1929,8 +1810,8 @@ int do_shmem(uintptr_t * addr_store, size_t len, uint32_t mmap_flags)
 		goto out_unlock;
 	}
 
-	uintptr_t start = ROUNDDOWN(addr, PGSIZE), end =
-	    ROUNDUP(addr + len, PGSIZE);
+	uintptr_t start = ROUNDDOWN(addr, PGSIZE), end = ROUNDUP(addr + len,
+			PGSIZE);
 	addr = start, len = end - start;
 
 	uint32_t vm_flags = VM_READ;
@@ -1955,8 +1836,7 @@ int do_shmem(uintptr_t * addr_store, size_t len, uint32_t mmap_flags)
 		goto out_unlock;
 	}
 	copy_to_user(mm, addr_store, &addr, sizeof(uintptr_t));
-out_unlock:
-	unlock_mm(mm);
+	out_unlock: unlock_mm(mm);
 	return ret;
 }
 
@@ -1977,8 +1857,7 @@ out_unlock:
 #define KERNEL_EXECVE3(x, s, ...)               __KERNEL_EXECVE3(x, s, ##__VA_ARGS__)
 
 // user_main - kernel thread used to exec a user program
-static int user_main(void *arg)
-{
+static int user_main(void *arg) {
 	sysfile_open("stdin:", O_RDONLY);
 	sysfile_open("stdout:", O_WRONLY);
 	sysfile_open("stdout:", O_WRONLY);
@@ -1995,8 +1874,7 @@ static int user_main(void *arg)
 }
 
 // init_main - the second kernel thread used to create kswapd_main & user_main kernel threads
-static int init_main(void *arg)
-{
+static int init_main(void *arg) {
 	int pid;
 #ifdef UCONFIG_SWAP
 	if ((pid = ucore_kernel_thread(kswapd_main, NULL, 0)) <= 0) {
@@ -2047,9 +1925,9 @@ static int init_main(void *arg)
 	kprintf("all user-mode processes have quit.\n");
 #ifdef UCONFIG_SWAP
 	assert(initproc->cptr == kswapd && initproc->yptr == NULL
-	       && initproc->optr == NULL);
+			&& initproc->optr == NULL);
 	assert(kswapd->cptr == NULL && kswapd->yptr == NULL
-	       && kswapd->optr == NULL);
+			&& kswapd->optr == NULL);
 	assert(nr_process == 2 + sysconf.lcpu_count);
 #else
 	assert(nr_process == 1 + sysconf.lcpu_count);
@@ -2062,8 +1940,7 @@ static int init_main(void *arg)
 
 // proc_init - set up the first kernel thread idleproc "idle" by itself and 
 //           - create the second kernel thread init_main
-void proc_init(void)
-{
+void proc_init(void) {
 	int i;
 	int cpuid = myid();
 	struct proc_struct *idle;
@@ -2112,8 +1989,7 @@ void proc_init(void)
 	assert(initproc != NULL && initproc->pid == sysconf.lcpu_count);
 }
 
-void proc_init_ap(void)
-{
+void proc_init_ap(void) {
 	int cpuid = myid();
 	struct proc_struct *idle;
 
@@ -2144,7 +2020,7 @@ void proc_init_ap(void)
 #if 1
 	int pid;
 	char proc_name[32];
-	if((pid = ucore_kernel_thread(krefcache_cleaner, NULL, 0)) <= 0){
+	if ((pid = ucore_kernel_thread(krefcache_cleaner, NULL, 0)) <= 0) {
 		panic("krefcache_cleaner init failed.\n");
 	}
 	struct proc_struct* cleaner = find_proc(pid);
@@ -2157,8 +2033,7 @@ void proc_init_ap(void)
 	assert(idleproc != NULL && idleproc->pid == cpuid);
 }
 
-int do_linux_ugetrlimit(int res, struct linux_rlimit *__user __limit)
-{
+int do_linux_ugetrlimit(int res, struct linux_rlimit *__user __limit) {
 	struct linux_rlimit limit;
 	switch (res) {
 	case RLIMIT_STACK:
