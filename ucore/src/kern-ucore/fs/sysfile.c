@@ -168,7 +168,7 @@ out:
 int sysfile_writev(int fd, struct iovec __user * iov, int iovcnt)
 {
 	/* do nothing but return 0 */
-	kprintf("writev: fd=%08x iov=%08x iovcnt=%d\n", fd, iov, iovcnt);
+	//kprintf("writev: fd=%08x iov=%08x iovcnt=%d\n", fd, iov, iovcnt);
 	struct iovec *tv;
 	int rcode = 0, count = 0, i;
 	struct mm_struct *mm = current->mm;
