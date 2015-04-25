@@ -14,6 +14,7 @@
 #include <error.h>
 #include <kio.h>
 #include <unistd.h>
+#include <vmm.h>
 
 static uint32_t sys_exit(uint32_t arg[])
 {
@@ -442,13 +443,16 @@ void syscall(void)
 
 // linuxspace
 
-static uint32_t
-sys_wait_bionic(uint32_t arg[]) {
+static uint32_t __sys_linux_waitpid(uint32_t arg[])
+{
 	int pid = (int)arg[0];
 	int *store = (int *)arg[1];
-	return do_wait_bionic(pid, store);
+	int options = (int)arg[2];
+	void *rusage = (void *)arg[3];
+	if (options && rusage)
+		return -E_INVAL;
+	return do_linux_waitpid(pid, store);
 }
-
 static uint32_t
 sys_seek_bionic(uint32_t arg[]) {
 	int fd = (int)arg[0];
@@ -460,9 +464,6 @@ sys_seek_bionic(uint32_t arg[]) {
 static uint32_t
 sys_access_bionic(uint32_t arg[]) {
 	const char *path = (char*)arg[0];
-#ifdef DEBUG
-cprintf("sys_access(): %s\n", path);
-#endif
 	struct stat dummy;
 	return sysfile_stat(path, &dummy);
 }
@@ -492,6 +493,55 @@ sys_writev(uint32_t arg[]) {
 	return sysfile_writev(fd, iov, iovcnt);
 }
 
+static uint32_t
+sys_clock_gettime_bionic(uint32_t arg[]) {
+	struct timespec *time = (struct timespec*)arg[1];
+	return do_clock_gettime(time);
+}
+
+static uint32_t
+sys_brk_bionic(uint32_t arg[]) {
+	uintptr_t brk = (uintptr_t)arg[0];
+	return do_linux_brk(brk);
+}
+
+static uint32_t __sys_linux_mmap2(uint32_t arg[])
+{
+	//TODO
+	void *addr = (void *)arg[0];
+	size_t len = arg[1];
+	int prot = (int)arg[2];
+	int flags = (int)arg[3];
+	int fd = (int)arg[4];
+	size_t off = (size_t) arg[5];
+#ifndef UCONFIG_BIONIC_LIBC
+	kprintf
+	    ("TODO __sys_linux_mmap2 addr=%08x len=%08x prot=%08x flags=%08x fd=%d off=%08x\n",
+	     addr, len, prot, flags, fd, off);
+#endif //UCONFIG_BIONIC_LIBC
+	if (fd == -1 || flags & MAP_ANONYMOUS) {
+		//print_trapframe(current->tf);
+#ifdef UCONFIG_BIONIC_LIBC
+		if (flags & MAP_FIXED) {
+			return linux_regfile_mmap2(addr, len, prot, flags, fd,
+						   off);
+		}
+#endif //UCONFIG_BIONIC_LIBC
+
+		uint32_t ucoreflags = 0;
+		if (prot & PROT_WRITE)
+			ucoreflags |= MMAP_WRITE;
+		int ret = __do_linux_mmap((uintptr_t) & addr, len, ucoreflags);
+		//kprintf("@@@ ret=%d %e %08x\n", ret,ret, addr);
+		if (ret)
+			return (uint32_t)MAP_FAILED;
+		//kprintf("__sys_linux_mmap2 ret=%08x\n", addr);
+		return (uint32_t) addr;
+	} else {
+		return (uint32_t) sysfile_linux_mmap2(addr, len, prot, flags,
+						      fd, off);
+	}
+}
 
 
 static uint32_t (*syscalls_linux[])(uint32_t arg[]) = {
@@ -501,7 +551,7 @@ static uint32_t (*syscalls_linux[])(uint32_t arg[]) = {
 	[4]                     sys_write,
 	[5]                     sys_open,
 	[6]                     sys_close,
-	[7]                     sys_wait_bionic,
+	[7]                     __sys_linux_waitpid, //sys_wait_bionic,
 	[9]                     sys_link,
 	[10]                    sys_unlink,
 	[11]                    sys_exec,
@@ -514,7 +564,8 @@ static uint32_t (*syscalls_linux[])(uint32_t arg[]) = {
 	[39]                    sys_mkdir,
 	[41]                    sys_dup_bionic,
 	[42]                    sys_pipe,
-	//[45]                    sys_brk_bionic,
+	[45]                    sys_brk_bionic,
+	//TODO:54
 	[63]                    sys_dup,
 	//[64]                    sys_getppid_bionic,
 	//[67]                    sys_sigaction_bionic,
@@ -534,10 +585,11 @@ static uint32_t (*syscalls_linux[])(uint32_t arg[]) = {
 	[148]                   sys_fsync,
 	[158]                   sys_yield,
 	//[162]                   sys_nanosleep_bionic,
+	//TODO:175
 	//[177]                   sys_sigwaitinfo_bionic,
 	[183]                   sys_getcwd,
 	//[186]                   sys_sigaltstack_bionic,
-	//[192]                   sys_mmap2_bionic,
+	[192]                   __sys_linux_mmap2, //sys_mmap2_bionic,
 	//[195]                   sys_stat,
 	[197]                   sys_fstat,
 	//[199]                   sys_dummy_bionic,
@@ -548,7 +600,7 @@ static uint32_t (*syscalls_linux[])(uint32_t arg[]) = {
 	[243]                   sys_set_thread_area_bionic,
 	[252]                   sys_exit,
 	//TODO:258
-	//[265]                   sys_clock_gettime_bionic,
+	[265]                   sys_clock_gettime_bionic,
 	[331]                   sys_pipe,
 	//[400]                   sys_sigreturn_bionic,
 	//[401]                   sys_set_shellrun,
