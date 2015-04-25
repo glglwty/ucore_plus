@@ -13,6 +13,7 @@
 #include <sysfile.h>
 #include <error.h>
 #include <kio.h>
+#include <unistd.h>
 
 static uint32_t sys_exit(uint32_t arg[])
 {
@@ -416,6 +417,126 @@ static uint32_t(*syscalls[]) (uint32_t arg[]) = {
 		[SYS_umount] sys_umount
 };
 
+
+static uint32_t (*syscalls_linux[])(uint32_t arg[]) = {
+	[1]			sys_exit_thread,
+	[2]                     sys_fork,
+	[3]                     sys_read,
+	[4]                     sys_write,
+	[5]                     sys_open,
+	[6]                     sys_close,
+	//[7]                     sys_wait_bionic,
+	[9]                     sys_link,
+	[10]                    sys_unlink,
+	[11]                    sys_exec,
+	[12]                    sys_chdir,
+	//[19]                    sys_seek_bionic,
+	[20]                    sys_getpid,
+	//[33]                    sys_access_bionic,
+	//[37]                    sys_sigkill_bionic,
+	[38]                    sys_rename,
+	[39]                    sys_mkdir,
+	//[41]                    sys_dup_bionic,
+	[42]                    sys_pipe,
+	//[45]                    sys_brk_bionic,
+	[63]                    sys_dup,
+	//[64]                    sys_getppid_bionic,
+	//[67]                    sys_sigaction_bionic,
+	//[72]                    sys_sigsuspend_bionic,
+	//[73]                    sys_sigpending_bionic,
+	//[78]                    sys_gettimeofday_bionic,
+	//[83]                    sys_symlink_bionic,
+	//[85]                    sys_readlink_bionic,
+	[91]                    sys_munmap,
+	//[93]                    sys_ftruncate_bionic,
+	//[114]                   sys_wait_bionic,
+	[118]                   sys_fsync,
+	[120]                   sys_clone,
+	//[125]                   sys_mprotect,
+	//[126]                   sys_sigprocmask_bionic,
+	//[146]                   sys_writev,
+	[148]                   sys_fsync,
+	[158]                   sys_yield,
+	//[162]                   sys_nanosleep_bionic,
+	//[177]                   sys_sigwaitinfo_bionic,
+	[183]                   sys_getcwd,
+	//[186]                   sys_sigaltstack_bionic,
+	//[192]                   sys_mmap2_bionic,
+	//[195]                   sys_stat,
+	[197]                   sys_fstat,
+	//[199]                   sys_dummy_bionic,
+	//[200]                   sys_getgid_bionic,
+	//[224]                   sys_gettid_bionic,
+	//[238]                   sys_sigtkill_bionic,
+	//[240]                   sys_futex_bionic,
+	//[243]                   sys_set_thread_area_bionic,
+	[252]                   sys_exit,
+	//[265]                   sys_clock_gettime_bionic,
+	[331]                   sys_pipe,
+	//[400]                   sys_sigreturn_bionic,
+	//[401]                   sys_set_shellrun,
+};
+
+static const char *syscalls_name_linux[] = {
+	[1]                     "exit_thread",
+	[2]                     "fork",
+	[3]                     "read",
+	[4]                     "write",
+	[5]                     "open",
+	[6]                     "close",
+	[7]                     "waitpid",
+	[9]                     "link",
+	[10]                    "unlink",
+	[11]                    "execve",
+	[12]                    "chdir",
+	[19]                    "lseek",
+	[20]                    "getpid",
+	[33]                    "access",
+	[37]                    "kill",
+	[38]                    "rename",
+	[39]                    "mkdir",
+	[41]                    "dup",
+	[42]                    "pipe",
+	[45]                    "brk",
+	[63]                    "dup2",
+	[64]                    "getppid",
+	[67]                    "sigaction",
+	[72]                    "sigsuspend",
+	[73]                    "sigpending",
+	[78]                    "gettimeofday",
+	[82]                    "test",
+	[83]                    "symlink",
+	[85]                    "readlink",
+	[91]                    "munmap",
+	[93]                    "ftruncate",
+	[114]                   "wait4",
+	[118]                   "fsync",
+	[120]                   "clone",
+	[125]                   "mprotect",
+	[126]                   "sigprocmask",
+	[146]                   "writev",
+	[148]                   "fdatasync",
+	[158]                   "sched_yield",
+	[162]			"nanosleep",
+	[177]			"rt_sigtimedwait",
+	[183]                   "getcwd",
+	[186]                   "sigaltstack",
+	[192]                   "mmap2",
+	[195]                   "stat",
+	[197]                   "fstat",
+	[199]                   "getuid dummy",
+	[200]                   "getgid",
+	[224]                   "gettid",
+	[238]                   "tkill",
+	[240]                   "futex",
+	[243]                   "set_thread_area",
+	[252]                   "exit_group",
+	[265]                   "clock_gettime",
+	[331]                   "pipe2",
+	[400]                   "sigreturn(not user syscall)",
+	[401]                   "set_shellrun(only for shell)",
+};
+
 #define NUM_SYSCALLS        ((sizeof(syscalls)) / (sizeof(syscalls[0])))
 
 void syscall(void)
@@ -447,17 +568,17 @@ void syscall_linux(void)
 	uint32_t arg[5];
 	int num = tf->tf_regs.reg_eax;
 	if (num >= 0 && num < NUM_SYSCALLS) {
-		if (syscalls[num] != NULL) {
+		if (syscalls_linux[num] != NULL) {
 			arg[0] = tf->tf_regs.reg_edx;
 			arg[1] = tf->tf_regs.reg_ecx;
 			arg[2] = tf->tf_regs.reg_ebx;
 			arg[3] = tf->tf_regs.reg_edi;
 			arg[4] = tf->tf_regs.reg_esi;
-			tf->tf_regs.reg_eax = syscalls[num] (arg);
+			tf->tf_regs.reg_eax = syscalls_linux[num] (arg);
 			return;
 		}
 	}
 	print_trapframe(tf);
-	panic("undefined syscall %d, pid = %d, name = %s.\n",
+	panic("undefined linux syscall %d, pid = %d, name = %s.\n",
 	      num, current->pid, current->name);
 }
