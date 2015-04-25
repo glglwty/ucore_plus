@@ -31,6 +31,8 @@ while getopts "chgd:t:" opt; do
             exit 0
             ;;
         g)
+
+            COMMAND_LINE_MODE=y
             DEBUG_MODE=y
             ;;
         t)

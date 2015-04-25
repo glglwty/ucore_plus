@@ -74,6 +74,8 @@ static struct segdesc gdt[] = {
 	[SEG_UTEXT] = SEG(STA_X | STA_R, 0x0, 0xFFFFFFFF, DPL_USER),
 	[SEG_UDATA] = SEG(STA_W, 0x0, 0xFFFFFFFF, DPL_USER),
 	[SEG_TSS] = SEG_NULL,
+    // How to set base address of SEG_TLS gracefully?
+    [SEG_TLS]   = SEG_NULL,
 };
 
 static struct pseudodesc gdt_pd = {
@@ -108,6 +110,11 @@ static inline void lgdt(struct pseudodesc *pd)
 	asm volatile ("movw %%ax, %%ss"::"a" (KERNEL_DS));
 	// reload cs
 	asm volatile ("ljmp %0, $1f\n 1:\n"::"i" (KERNEL_CS));
+}
+
+static inline void
+load_gdt(struct pseudodesc *pd) {
+    asm volatile ("lgdt (%0)" :: "r" (pd));
 }
 
 /**************************************************
@@ -605,4 +612,36 @@ void print_pgdir(int (*printf) (const char *fmt, ...))
 		}
 	}
 	printf("--------------------- END ---------------------\n");
+}
+
+
+uint32_t
+set_tls(struct user_tls_desc *tlsp) {
+    // initialize the TLS filed of the gdt
+	kprintf("in set tls\n");
+    current->tls_pointer = tlsp->base_addr;
+    current->tls_limit = tlsp->limit;
+    kprintf("set current done\n");
+    if ( tlsp->entry_number == - 1) {
+    	kprintf("tlsp->entry_number == - 1\n");
+        gdt[SEG_TLS] = SEG(STA_W, tlsp->base_addr, tlsp->limit, DPL_USER);
+#ifdef DEBUG
+        cprintf("tls segment: base = 0x%08x, limit = 0x%08x\n", tlsp->base_addr, tlsp->limit);
+#endif
+        tlsp->entry_number = SEG_TLS;
+        return 0;
+    } else {
+    	kprintf("tlsp:%x\n",tlsp);
+    	kprintf("else tlsp->engry_number = %x\n", tlsp->entry_number);
+    	kprintf("tlsp->baseaddr:%x\n", tlsp->base_addr);
+        gdt[tlsp->entry_number] = SEG(STA_W, tlsp->base_addr, tlsp->limit, DPL_USER);
+        kprintf("set gdt done\n");
+        return 0;
+    }
+}
+
+void
+load_tls(uintptr_t base_addr, size_t limit) {
+	gdt[SEG_TLS] = SEG(STA_W, base_addr, limit, DPL_USER);
+	load_gdt(&gdt_pd);
 }

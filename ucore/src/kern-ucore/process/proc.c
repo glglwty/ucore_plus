@@ -188,6 +188,7 @@ void proc_run(struct proc_struct *proc)
 		local_intr_save(intr_flag);
 		{
 			current = proc;
+            load_tls(current->tls_pointer, current->tls_limit);
 			load_rsp0(next->kstack + KSTACKSIZE);
 			mp_set_mm_pagetable(next->mm);
 
@@ -895,28 +896,24 @@ static int init_new_process_context(
 
 	uintptr_t envbase = USTACKTOP - envc * PGSIZE, argbase = envbase - argc * PGSIZE;
 	uintptr_t argvbase, envvbase;
-	if (is_dynamic) {
-		size_t aux[] = { //32bit on i386, 64bit on x86_64. I haven't check other platforms.
-				ELF_AT_BASE,
-				interp_base,
-				ELF_AT_PHDR,
-				userp_base + elf->e_phoff,
-				ELF_AT_PHNUM,
-				elf->e_phnum,
-				ELF_AT_PHENT,
-				elf->e_phentsize,
-				ELF_AT_PAGESZ,
-				PGSIZE,
-				ELF_AT_ENTRY,
-				elf->e_entry,	//TODO: What if we run a shared object directly?
-				ELF_AT_NULL,
-		};
-		uintptr_t auxbase = argbase - sizeof(aux);
-		memcpy((void*)auxbase, aux, sizeof(aux));
-		envvbase = auxbase - (envc + 1) * sizeof(char*);
-	} else {
-		envvbase = argbase - (envc + 1) * sizeof(char*);
-	}
+	size_t aux[] = { //32bit on i386, 64bit on x86_64. I haven't check other platforms.
+			ELF_AT_BASE,
+			interp_base,
+			ELF_AT_PHDR,
+			userp_base + elf->e_phoff,
+			ELF_AT_PHNUM,
+			elf->e_phnum,
+			ELF_AT_PHENT,
+			elf->e_phentsize,
+			ELF_AT_PAGESZ,
+			PGSIZE,
+			ELF_AT_ENTRY,
+			elf->e_entry,	//TODO: What if we run a shared object directly?
+			ELF_AT_NULL,
+	};
+	uintptr_t auxbase = argbase - sizeof(aux);
+	memcpy((void*)auxbase, aux, sizeof(aux));
+	envvbase = auxbase - (envc + 1) * sizeof(char*);
 	argvbase = envvbase - (argc + 1) * sizeof(char*);
 	//setup args
 	size_t iter;

@@ -472,6 +472,28 @@ sys_sigkill_bionic(uint32_t arg[]) {
 	return do_sigkill((int)arg[0], (int)arg[1]);
 }
 
+static uint32_t
+sys_dup_bionic(uint32_t arg[]) {
+	int fd = (int)arg[0];
+	return sysfile_dup(fd, NO_FD);
+}
+
+static uint32_t
+sys_set_thread_area_bionic(uint32_t arg[]) {
+	struct user_tls_desc *tlsp = (struct user_tls_desc *)arg[0];
+	return set_tls(tlsp);
+}
+
+static uint32_t
+sys_writev(uint32_t arg[]) {
+	int fd = (int)arg[0];
+	struct iovec *iov = (struct iovec*)arg[1];
+	int iovcnt = (int)arg[2];
+	return sysfile_writev(fd, iov, iovcnt);
+}
+
+
+
 static uint32_t (*syscalls_linux[])(uint32_t arg[]) = {
 	[1]			sys_exit_thread,
 	[2]                     sys_fork,
@@ -490,7 +512,7 @@ static uint32_t (*syscalls_linux[])(uint32_t arg[]) = {
 	[37]                    sys_sigkill_bionic,
 	[38]                    sys_rename,
 	[39]                    sys_mkdir,
-	//[41]                    sys_dup_bionic,
+	[41]                    sys_dup_bionic,
 	[42]                    sys_pipe,
 	//[45]                    sys_brk_bionic,
 	[63]                    sys_dup,
@@ -508,7 +530,7 @@ static uint32_t (*syscalls_linux[])(uint32_t arg[]) = {
 	[120]                   sys_clone,
 	//[125]                   sys_mprotect,
 	//[126]                   sys_sigprocmask_bionic,
-	//[146]                   sys_writev,
+	[146]                   sys_writev,
 	[148]                   sys_fsync,
 	[158]                   sys_yield,
 	//[162]                   sys_nanosleep_bionic,
@@ -523,8 +545,9 @@ static uint32_t (*syscalls_linux[])(uint32_t arg[]) = {
 	//[224]                   sys_gettid_bionic,
 	//[238]                   sys_sigtkill_bionic,
 	//[240]                   sys_futex_bionic,
-	//[243]                   sys_set_thread_area_bionic,
+	[243]                   sys_set_thread_area_bionic,
 	[252]                   sys_exit,
+	//TODO:258
 	//[265]                   sys_clock_gettime_bionic,
 	[331]                   sys_pipe,
 	//[400]                   sys_sigreturn_bionic,
@@ -595,26 +618,39 @@ static const char *syscalls_name_linux[] = {
 
 
 
-//linuxspace
-void syscall_linux(void)
-{
-	kprintf("linux syscall\n");
+
+
+
+void
+syscall_linux(void) {
 	struct trapframe *tf = current->tf;
-	uint32_t arg[5];
+	kprintf("linux syscall %d\n", tf->tf_regs.reg_eax);
+	uint32_t arg[6];
+	arg[0] = tf->tf_regs.reg_ebx;
+	arg[1] = tf->tf_regs.reg_ecx;
+	arg[2] = tf->tf_regs.reg_edx;
+	arg[3] = tf->tf_regs.reg_esi;
+	arg[4] = tf->tf_regs.reg_edi;
+	arg[5] = tf->tf_regs.reg_ebp;
 	int num = tf->tf_regs.reg_eax;
-	if (num >= 0 && num < NUM_SYSCALLS_LINUX) {
-		if (syscalls_linux[num] != NULL) {
-			arg[0] = tf->tf_regs.reg_edx;
-			arg[1] = tf->tf_regs.reg_ecx;
-			arg[2] = tf->tf_regs.reg_ebx;
-			arg[3] = tf->tf_regs.reg_edi;
-			arg[4] = tf->tf_regs.reg_esi;
-			tf->tf_regs.reg_eax = syscalls_linux[num] (arg);
-			return;
+	if (num >= 0 && num < NUM_SYSCALLS_LINUX && syscalls_linux[num] != NULL) {
+		int ret = syscalls_linux[num](arg);
+		if ( -MAXERROR <= ret && ret < 0 ) {
+#ifdef DEBUG
+			cprintf("linux syscall %s return error \"%e\"\n", syscalls_name_bionic[num], ret);
+#endif
 		}
+		tf->tf_regs.reg_eax = ret;
+		return ;
+	} else {
+		tf->tf_regs.reg_eax = 0;
+#ifdef DEBUG
+		cprintf("undefined syscall %d, pid = %d, name = %s.\n",
+			num, current->pid, current->name);
+#endif
+		return ;
 	}
 	print_trapframe(tf);
 	panic("undefined linux syscall %d, pid = %d, name = %s.\n",
-	      num, current->pid, current->name);
+			num, current->pid, current->name);
 }
-

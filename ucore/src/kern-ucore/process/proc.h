@@ -68,6 +68,7 @@ struct proc_struct {
 	struct proc_signal signal_info;
 
 	void *tls_pointer;
+	size_t tls_limit;
 
 	int cpu_affinity;
 	spinlock_s lock;

@@ -189,4 +189,21 @@ static inline pgd_t *init_pgdir_get(void)
 
 extern char *bootstack, *bootstacktop;
 
+
+struct user_tls_desc {
+	uint32_t  entry_number;
+	uintptr_t base_addr;
+	size_t    limit;
+	unsigned int seg_32bit:1;
+	unsigned int contents:2;
+	unsigned int read_exec_only:1;
+	unsigned int limit_in_pages:1;
+	unsigned int seg_not_present:1;
+	unsigned int useable:1;
+	unsigned int empty:25;
+};
+
+uint32_t set_tls(struct user_tls_desc *tlsp);
+void load_tls(uintptr_t base_addr, size_t limit);
+
 #endif /* !__KERN_MM_PMM_H__ */
