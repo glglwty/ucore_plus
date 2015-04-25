@@ -73,8 +73,7 @@ CFLAGS+= \
     -D_GNU_SOURCE \
     -DACPI_SRC_APP \
     -I$(ACPISRC) \
-    -I$(ACPICA_INCLUDE) \
-    -ggdb
+    -I$(ACPICA_INCLUDE)
 
 CWARNINGFLAGS = \
     -ansi \

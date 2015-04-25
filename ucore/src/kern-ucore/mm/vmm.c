@@ -412,7 +412,6 @@ mm_map(struct mm_struct *mm, uintptr_t addr, size_t len, uint32_t vm_flags,
 	}
 	ret = 0;
 
-
 out:
 	return ret;
 }
