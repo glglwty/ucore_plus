@@ -54,9 +54,9 @@ __trapret:
 
     # pop ds, es
     popq %rax
-    movw %eax, %ds
+    movq %rax, %ds
     popq %rax
-    movw %eax, %es
+    movq %rax, %es
 
     popq %r15
     popq %r14
