@@ -202,6 +202,11 @@ sysfile_seek_return_pos(int fd, off_t pos, int whence) {
 }
 
 
+int
+sysfile_trunc(int fd, off_t len) {
+	return file_trunc(fd, len);
+}
+
 int sysfile_fstat(int fd, struct stat *__stat)
 {
 	struct mm_struct *mm = current->mm;
@@ -394,6 +399,36 @@ int sysfile_unlink(const char *__path)
 	ret = vfs_unlink(path);
 	kfree(path);
 	return ret;
+}
+
+int
+sysfile_readlink(const char *__path, char *buf, size_t bufsiz) {
+    int ret;
+    char *path;
+    if ((ret = copy_path(&path, __path)) != 0) {
+        return ret;
+    }
+    struct iobuf iob;
+    iobuf_init(&iob, buf, bufsiz, 0);
+    ret = vfs_readlink(path, &iob);
+    kfree(path);
+    return ret;
+}
+
+int
+sysfile_symlink(const char *__path1, const char *__path2) {
+    int ret;
+    char *old_path, *new_path;
+    if ((ret = copy_path(&old_path, __path1)) != 0) {
+        return ret;
+    }
+    if ((ret = copy_path(&new_path, __path2)) != 0) {
+        kfree(old_path);
+        return ret;
+    }
+    ret = vfs_symlink(old_path, new_path);
+    kfree(old_path), kfree(new_path);
+    return ret;
 }
 
 int sysfile_getcwd(char *buf, size_t len)

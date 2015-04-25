@@ -580,6 +580,31 @@ void *linux_devfile_mmap2(void *addr, size_t len, int prot, int flags, int fd,
 	return r;
 }
 
+int filestruct_setpos(struct file *file, off_t pos)
+{
+	int ret = vop_tryseek(file->node, pos);
+	if (ret == 0) {
+		file->pos = pos;
+	}
+	return ret;
+}
+
+int
+file_trunc(int fd, off_t len) {
+    int ret;
+    struct file *file;
+    if ((ret = fd2file(fd, &file)) != 0) {
+        return ret;
+    }
+    filemap_acquire(file);
+
+    ret = vop_truncate(file->node, len);
+
+    filemap_release(file);
+    return ret;
+}
+
+
 #ifdef UCONFIG_BIONIC_LIBC
 
 int linux_access(char *path, int amode)
@@ -651,14 +676,7 @@ out_unlock:
 	return subret == 0 ? start : -1;
 }
 
-int filestruct_setpos(struct file *file, off_t pos)
-{
-	int ret = vop_tryseek(file->node, pos);
-	if (ret == 0) {
-		file->pos = pos;
-	}
-	return ret;
-}
+
 
 int filestruct_read(struct file *file, void *base, size_t len)
 {

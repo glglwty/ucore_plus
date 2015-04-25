@@ -555,7 +555,38 @@ static uint32_t sys_linux_sigaction(uint32_t arg[])
 	return do_sigaction((int)arg[0], (const struct sigaction *)arg[1],
 			    (struct sigaction *)arg[2]);
 }
+static uint32_t sys_linux_sigsuspend(uint32_t arg[])
+{
+	return do_sigsuspend((sigset_t *) arg[0]);
+}
+static uint32_t sys_linux_sigpending(uint32_t arg[])
+{
+	return do_sigpending((sigset_t *) arg[0]);
+}
+static uint32_t __sys_linux_gettimeofday(uint32_t arg[])
+{
+	struct linux_timeval *tv = (struct linux_timeval *)arg[0];
+	struct linux_timezone *tz = (struct linux_timezone *)arg[1];
+	return ucore_gettimeofday(tv, tz);
+}
 
+static uint32_t
+sys_readlink_bionic(uint32_t arg[]) {
+	return sysfile_readlink((const char *)arg[0], (char *)arg[1], (size_t)arg[2]);
+}
+
+static uint32_t
+sys_symlink_bionic(uint32_t arg[]) {
+	return sysfile_symlink((const char *)arg[0], (const char *)arg[1]);
+}
+
+
+static uint32_t
+sys_ftruncate_bionic(uint32_t arg[]) {
+	int fd = (int)arg[0];
+	off_t len = (off_t)arg[1];
+	return sysfile_trunc(fd, len);
+}
 
 static uint32_t (*syscalls_linux[])(uint32_t arg[]) = {
 	[1]			sys_exit_thread,
@@ -582,13 +613,13 @@ static uint32_t (*syscalls_linux[])(uint32_t arg[]) = {
 	[63]                    sys_dup,
 	[64]                    sys_getppid,
 	[67]                    sys_linux_sigaction,//sys_sigaction_bionic,
-	//[72]                    sys_sigsuspend_bionic,
-	//[73]                    sys_sigpending_bionic,
-	//[78]                    sys_gettimeofday_bionic,
-	//[83]                    sys_symlink_bionic,
-	//[85]                    sys_readlink_bionic,
+	[72]                    sys_linux_sigsuspend,//sys_sigsuspend_bionic,
+	[73]                    sys_linux_sigpending,//sys_sigpending_bionic,
+	[78]                    __sys_linux_gettimeofday,//sys_gettimeofday_bionic,
+	[83]                    sys_symlink_bionic,
+	[85]                    sys_readlink_bionic,
 	[91]                    sys_munmap,
-	//[93]                    sys_ftruncate_bionic,
+	[93]                    sys_ftruncate_bionic,
 	//[114]                   sys_wait_bionic,
 	[118]                   sys_fsync,
 	[120]                   sys_clone,
