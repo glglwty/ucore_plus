@@ -42,6 +42,9 @@ int file_close(int fd);
 int file_read(int fd, void *base, size_t len, size_t * copied_store);
 int file_write(int fd, void *base, size_t len, size_t * copied_store);
 int file_seek(int fd, off_t pos, int whence);
+//linuxspace
+int file_seek_return_pos(int fd, off_t pos, int whence);
+//linuxspace end
 int file_fstat(int fd, struct stat *stat);
 int file_fsync(int fd);
 int file_getdirentry(int fd, struct dirent *dirent);

@@ -111,11 +111,6 @@ void arch_setup_user_proc_trapframe(struct trapframe* tf, uintptr_t stacktop, ui
 	tf->tf_eflags = FL_IF;
 }
 
-
-
-
-
-
 int
 init_new_context(struct proc_struct *proc, struct elfhdr *elf,
 		 int argc, char **kargv, int envc, char **kenvp)

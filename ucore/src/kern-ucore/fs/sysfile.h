@@ -11,6 +11,9 @@ int sysfile_close(int fd);
 int sysfile_read(int fd, void *base, size_t len);
 int sysfile_write(int fd, void *base, size_t len);
 int sysfile_seek(int fd, off_t pos, int whence);
+//linuxspace
+int sysfile_seek_return_pos(int fd, off_t pos, int whence);
+//linuxspace
 int sysfile_fstat(int fd, struct stat *stat);
 int sysfile_stat(const char *fn, struct stat *stat);
 int sysfile_fsync(int fd);

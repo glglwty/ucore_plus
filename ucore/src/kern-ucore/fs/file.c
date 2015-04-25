@@ -312,6 +312,37 @@ int file_seek(int fd, off_t pos, int whence)
 	return ret;
 }
 
+int
+file_seek_return_pos(int fd, off_t pos, int whence) {
+    struct stat __stat, *stat = &__stat;
+    int ret;
+    struct file *file;
+    if ((ret = fd2file(fd, &file)) != 0) {
+        return ret;
+    }
+    filemap_acquire(file);
+
+    switch (whence) {
+    case LSEEK_SET: break;
+    case LSEEK_CUR: pos += file->pos; break;
+    case LSEEK_END:
+        if ((ret = vop_fstat(file->node, stat)) == 0) {
+            pos += stat->st_size;
+        }
+        break;
+    default: ret = -E_INVAL;
+    }
+
+    if (ret == 0) {
+        if ((ret = vop_tryseek(file->node, pos)) == 0) {
+            file->pos = pos;
+        }
+    }
+    filemap_release(file);
+    return (ret == 0) ? pos : ret;
+}
+
+
 int file_fstat(int fd, struct stat *stat)
 {
 	int ret;

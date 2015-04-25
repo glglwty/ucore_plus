@@ -196,6 +196,12 @@ int sysfile_seek(int fd, off_t pos, int whence)
 	return file_seek(fd, pos, whence);
 }
 
+int
+sysfile_seek_return_pos(int fd, off_t pos, int whence) {
+    return file_seek_return_pos(fd, pos, whence);
+}
+
+
 int sysfile_fstat(int fd, struct stat *__stat)
 {
 	struct mm_struct *mm = current->mm;

@@ -449,6 +449,13 @@ sys_wait_bionic(uint32_t arg[]) {
 	return do_wait_bionic(pid, store);
 }
 
+static uint32_t
+sys_seek_bionic(uint32_t arg[]) {
+	int fd = (int)arg[0];
+	off_t pos = (off_t)arg[1];
+	int whence = (int)arg[2];
+	return sysfile_seek_return_pos(fd, pos, whence);
+}
 
 
 static uint32_t (*syscalls_linux[])(uint32_t arg[]) = {
@@ -463,7 +470,7 @@ static uint32_t (*syscalls_linux[])(uint32_t arg[]) = {
 	[10]                    sys_unlink,
 	[11]                    sys_exec,
 	[12]                    sys_chdir,
-	//[19]                    sys_seek_bionic,
+	[19]                    sys_seek_bionic,
 	[20]                    sys_getpid,
 	//[33]                    sys_access_bionic,
 	//[37]                    sys_sigkill_bionic,
