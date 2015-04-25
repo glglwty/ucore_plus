@@ -138,7 +138,7 @@ static inline int fd2file(int fd, struct file **file_store)
 	return -E_INVAL;
 }
 
-#ifdef UCONFIG_BIONIC_LIBC
+//#ifdef UCONFIG_BIONIC_LIBC
 struct file*
 fd2file_onfs(int fd, struct fs_struct *fs_struct) {
 	if(testfd(fd)) {
@@ -152,7 +152,7 @@ fd2file_onfs(int fd, struct fs_struct *fs_struct) {
 	}
 	return NULL;
 }
-#endif //UCONFIG_BIONIC_LIBC
+//#endif //UCONFIG_BIONIC_LIBC
 
 bool file_testfd(int fd, bool readable, bool writable)
 {

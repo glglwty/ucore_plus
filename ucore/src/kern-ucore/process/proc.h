@@ -109,6 +109,7 @@ struct linux_timespec {
 
 #define current (mycpu()->__current)
 #define idleproc (mycpu()->idleproc)
+extern struct proc_struct *shellrun;
 
 extern struct proc_struct *initproc;
 extern struct proc_struct *kswapd;

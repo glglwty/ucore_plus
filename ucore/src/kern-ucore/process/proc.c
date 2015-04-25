@@ -78,6 +78,10 @@ struct proc_struct *initproc;
 struct proc_struct *kswapd;
 #endif
 
+
+// the proc run on shell
+struct proc_struct *shellrun = NULL;
+
 /* lock to protect the following data struct */
 spinlock_s proc_lock;
 // the process set's list
@@ -661,6 +665,10 @@ static int __do_exit(void)
 	if (current == initproc) {
 		panic("initproc exit.\n");
 	}
+	if (current == shellrun) {
+		shellrun = NULL;
+	}
+
 
 	struct mm_struct *mm = current->mm;
 	if (mm != NULL) {
@@ -1818,8 +1826,6 @@ int do_munmap(uintptr_t addr, size_t len)
 	return ret;
 }
 
-#ifdef UCONFIG_BIONIC_LIBC
-
 int do_mprotect(void *addr, size_t len, int prot)
 {
 
@@ -1894,7 +1900,6 @@ out:
 	return ret;
 }
 
-#endif //UCONFIG_BIONIC_LIBC
 
 // do_shmem - create a share memory with addr, len, flags(VM_READ/M_WRITE/VM_STACK)
 int do_shmem(uintptr_t * addr_store, size_t len, uint32_t mmap_flags)

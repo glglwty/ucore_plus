@@ -227,7 +227,7 @@ static inline int vma_compare(rb_node * node1, rb_node * node2)
 	return (start1 < start2) ? -1 : (start1 > start2) ? 1 : 0;
 }
 
-#ifdef UCONFIG_BIONIC_LIBC
+//#ifdef UCONFIG_BIONIC_LIBC
 void vma_mapfile(struct vma_struct *vma, int fd, off_t off, struct fs_struct *fs_struct)
 {
 
@@ -270,7 +270,7 @@ static void vma_copymapfile(struct vma_struct *to, struct vma_struct *from)
 	}
 }
 
-#endif //UCONFIG_BIONIC_LIBC
+//#endif //UCONFIG_BIONIC_LIBC
 
 // check_vma_overlap - check if vma1 overlaps vma2 ?
 static inline void
@@ -524,7 +524,6 @@ int mm_unmap(struct mm_struct *mm, uintptr_t addr, size_t len)
 	return 0;
 }
 
-#ifdef UCONFIG_BIONIC_LIBC
 int mm_unmap_keep_pages(struct mm_struct *mm, uintptr_t addr, size_t len)
 {
 	uintptr_t start = ROUNDDOWN(addr, PGSIZE), end =
@@ -590,8 +589,6 @@ int mm_unmap_keep_pages(struct mm_struct *mm, uintptr_t addr, size_t len)
 	}
 	return 0;
 }
-#endif //UCONFIG_BIONIC_LIBC
-
 int dup_mmap(struct mm_struct *to, struct mm_struct *from)
 {
 	assert(to != NULL && from != NULL);

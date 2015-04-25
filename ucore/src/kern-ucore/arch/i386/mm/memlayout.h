@@ -121,6 +121,7 @@ struct e820map {
 	} __attribute__ ((packed)) map[E820MAX];
 };
 
+
 /* *
  * struct Page - Page descriptor structures. Each Page describes one
  * physical page. In kern/mm/pmm.h, you can find lots of useful functions
@@ -135,6 +136,16 @@ struct Page {
 	swap_entry_t index;	// stores a swapped-out page identifier
 	list_entry_t swap_link;	// swap hash link
 };
+
+struct mapped_addr {
+	struct Page *page;
+	off_t offset;
+	list_entry_t list;
+};
+
+#define le2maddr(le)	\
+	to_struct((le), struct mapped_addr, list)
+
 
 /* Flags describing the status of a page frame */
 #define PG_reserved                 0	// the page descriptor is reserved for kernel or unusable

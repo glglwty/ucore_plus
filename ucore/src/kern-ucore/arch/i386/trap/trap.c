@@ -199,10 +199,21 @@ static void trap_dispatch(struct trapframe *tf)
 		break;
 	case IRQ_OFFSET + IRQ_COM1:
 	case IRQ_OFFSET + IRQ_KBD:
+		if ((c = cons_getc()) == 3) {
+			if ( raise_signal(shellrun, SIGINT, 1) < 0 ) {
+				debug_monitor(tf);
+			}
+		}
+		else {
+			extern void dev_stdin_write(char c);
+			dev_stdin_write(c);
+		}
+		/*
 		c = cons_getc();
 
 		extern void dev_stdin_write(char c);
 		dev_stdin_write(c);
+		*/
 		break;
 	case IRQ_OFFSET + IRQ_IDE1:
 	case IRQ_OFFSET + IRQ_IDE2:

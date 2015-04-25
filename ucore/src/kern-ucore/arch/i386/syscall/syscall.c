@@ -588,6 +588,86 @@ sys_ftruncate_bionic(uint32_t arg[]) {
 	return sysfile_trunc(fd, len);
 }
 
+static uint32_t __sys_linux_mprotect(uint32_t arg[])
+{
+
+	void *addr = (void *)arg[0];
+	size_t len = arg[1];
+	int prot = arg[2];
+	return do_mprotect(addr, len, prot);
+}
+static uint32_t sys_linux_sigprocmask(uint32_t arg[])
+{
+	return do_sigprocmask((int)arg[0], (const sigset_t *)arg[1],
+			      (sigset_t *) arg[2]);
+}
+
+static uint32_t __sys_linux_nanosleep(uint32_t arg[])
+{
+	//TODO: handle signal interrupt
+	struct linux_timespec *req = (struct linux_timespec *)arg[0];
+	struct linux_timespec *rem = (struct linux_timespec *)arg[1];
+	return do_linux_sleep(req, rem);
+}
+
+static uint32_t sys_linux_sigwaitinfo(uint32_t arg[])
+{
+	const sigset_t *set = (const sigset_t *)arg[0];
+	struct siginfo_t *info = (struct siginfo_t *)arg[1];
+	return do_sigwaitinfo(set, info);
+}
+
+static uint32_t sys_linux_sigaltstack(uint32_t arg[])
+{
+	const stack_t *stack = (const stack_t *)arg[0];
+	stack_t *old = (stack_t *) arg[1];
+	return do_sigaltstack(stack, old);
+}
+static uint32_t
+sys_stat(uint32_t arg[]) {
+	const char *path = (char*)arg[0];
+#ifdef DEBUG
+cprintf("sys_stat(): %s\n", path);
+#endif
+	struct stat *stat = (struct stat *)arg[1];
+	return sysfile_stat(path, stat);
+}
+
+static uint32_t
+sys_dummy_bionic(uint32_t arg[]) {
+	return 0;
+}
+static uint32_t
+sys_getgid_bionic(uint32_t arg[]) {
+	return current->gid;
+}
+static uint32_t __sys_linux_gettid(uint32_t arg[])
+{
+	return current->tid;
+}
+static uint32_t sys_linux_sigtkill(uint32_t arg[])
+{
+	return do_sigtkill((int)arg[0], (int)arg[1]);
+}
+
+static uint32_t __sys_linux_futex(uint32_t arg[])
+{
+	uintptr_t uaddr = (uintptr_t) arg[0];
+	int op = arg[1] & 127;
+	int val = arg[2];
+	return do_futex(uaddr, op, val);
+}
+
+//static uint32_t sys_linux_sigreturn(uint32_t arg[])
+//{
+//	//return do_sigreturn();
+//}
+
+static uint32_t
+sys_set_shellrun(uint32_t arg[]) {
+	shellrun = current;
+	return 0;
+}
 static uint32_t (*syscalls_linux[])(uint32_t arg[]) = {
 	[1]			sys_exit_thread,
 	[2]                     sys_fork,
@@ -620,34 +700,34 @@ static uint32_t (*syscalls_linux[])(uint32_t arg[]) = {
 	[85]                    sys_readlink_bionic,
 	[91]                    sys_munmap,
 	[93]                    sys_ftruncate_bionic,
-	//[114]                   sys_wait_bionic,
+	[114]                   __sys_linux_waitpid, //TODO:check why
 	[118]                   sys_fsync,
 	[120]                   sys_clone,
-	//[125]                   sys_mprotect,
-	//[126]                   sys_sigprocmask_bionic,
+	[125]                   __sys_linux_mprotect,//sys_mprotect,
+	[126]                   sys_linux_sigprocmask,//sys_sigprocmask_bionic,
 	[146]                   sys_writev,
 	[148]                   sys_fsync,
 	[158]                   sys_yield,
-	//[162]                   sys_nanosleep_bionic,
+	[162]                   __sys_linux_nanosleep,//sys_nanosleep_bionic,
 	//TODO:175
-	//[177]                   sys_sigwaitinfo_bionic,
+	[177]                   sys_linux_sigwaitinfo,//sys_sigwaitinfo_bionic,
 	[183]                   sys_getcwd,
-	//[186]                   sys_sigaltstack_bionic,
+	[186]                   sys_linux_sigaltstack,//sys_sigaltstack_bionic,
 	[192]                   __sys_linux_mmap2, //sys_mmap2_bionic,
-	//[195]                   sys_stat,
+	[195]                   sys_stat,
 	[197]                   sys_fstat,
-	//[199]                   sys_dummy_bionic,
-	//[200]                   sys_getgid_bionic,
-	//[224]                   sys_gettid_bionic,
-	//[238]                   sys_sigtkill_bionic,
-	//[240]                   sys_futex_bionic,
+	[199]                   sys_dummy_bionic,
+	[200]                   sys_getgid_bionic,
+	[224]                   __sys_linux_gettid,//sys_gettid_bionic,
+	[238]                   sys_linux_sigtkill,//sys_sigtkill_bionic,
+	[240]                   __sys_linux_futex,//sys_futex_bionic,
 	[243]                   sys_set_thread_area_bionic,
 	[252]                   sys_exit,
 	//TODO:258
 	[265]                   sys_clock_gettime_bionic,
 	[331]                   sys_pipe,
-	//[400]                   sys_sigreturn_bionic,
-	//[401]                   sys_set_shellrun,
+	//[400]                   sys_linux_sigreturn,//sys_sigreturn_bionic,
+	[401]                   sys_set_shellrun,
 };
 
 #define NUM_SYSCALLS_LINUX        ((sizeof(syscalls_linux)) / (sizeof(syscalls_linux[0])))
@@ -720,7 +800,7 @@ static const char *syscalls_name_linux[] = {
 void
 syscall_linux(void) {
 	struct trapframe *tf = current->tf;
-	kprintf("linux syscall %d\n", tf->tf_regs.reg_eax);
+	//kprintf("linux syscall %d\n", tf->tf_regs.reg_eax);
 	uint32_t arg[6];
 	arg[0] = tf->tf_regs.reg_ebx;
 	arg[1] = tf->tf_regs.reg_ecx;
