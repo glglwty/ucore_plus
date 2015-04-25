@@ -858,6 +858,86 @@ bad_cleanup_mmap:
 	return ret;
 }
 
+//TODO: This function should work at least on i386 and x86_64. Consider moving it to arch independent proc.c
+#define DYLIB_DEBUG
+static int init_new_process_context(
+		struct proc_struct *proc,
+		struct elfhdr *elf,
+		size_t argc,	//uint32_t, always.
+		char **kargv,
+		size_t envc,	//uint32_t, always.
+		char **kenvv,
+		uint32_t is_dynamic,
+		uintptr_t real_entry,
+		//interpreter or user is possible
+		uintptr_t userp_base,
+		//base of user program. It should be the virtual address of first LOAD elf section.
+		//This is often equal to ph_va of the section.
+		//But since the user program ITSELF might also have been relocated, this field is needed.
+		//Shared object is able to run independly :)
+		//TODO: We should come up of a better name.
+		uintptr_t interp_base
+		//The "actual address of 0" of interpreter.
+		//The elf of interpreter is always start from virtual address 0 before relocation.
+		) {
+
+#ifdef DYLIB_DEBUG
+		//I have to check the assumption when debugging, since nobody did it.
+		assert(elf->e_phentsize == sizeof(struct proghdr));
+#endif
+
+	if (elf->e_phentsize != sizeof(struct proghdr)) {
+		return -1;	//Incompatible elf.
+	}
+	if (argc + envc >= USTACKPAGE / 2) {
+		return -1;	//Too many arguments.
+	}
+
+	uintptr_t envbase = USTACKTOP - envc * PGSIZE, argbase = envbase - argc * PGSIZE;
+	uintptr_t argvbase, envvbase;
+	if (is_dynamic) {
+		size_t aux[] = { //32bit on i386, 64bit on x86_64. I haven't check other platforms.
+				ELF_AT_BASE,
+				interp_base,
+				ELF_AT_PHDR,
+				userp_base + elf->e_phoff,
+				ELF_AT_PHNUM,
+				elf->e_phnum,
+				ELF_AT_PHENT,
+				elf->e_phentsize,
+				ELF_AT_PAGESZ,
+				PGSIZE,
+				ELF_AT_ENTRY,
+				elf->e_entry,	//TODO: What if we run a shared object directly?
+				ELF_AT_NULL,
+		};
+		uintptr_t auxbase = argbase - sizeof(aux);
+		memcpy((void*)auxbase, aux, sizeof(aux));
+		envvbase = auxbase - (envc + 1) * sizeof(char*);
+	} else {
+		envvbase = argbase - (envc + 1) * sizeof(char*);
+	}
+	argvbase = envvbase - (argc + 1) * sizeof(char*);
+	//setup args
+	size_t iter;
+	for (iter = 0; iter < argc; iter ++) {
+		((char**)argvbase)[iter] = strncpy((char*)(argbase + iter * PGSIZE), kargv[iter], PGSIZE - 1);
+	}
+	((char**)argvbase)[argc] = NULL;
+	for (iter = 0; iter < envc; iter ++) {
+		((char**)envvbase)[iter] = strncpy((char*)(envbase + iter * PGSIZE), kenvv[iter], PGSIZE - 1);
+	}
+	((char**)envvbase)[envc] = NULL;
+	uintptr_t pargc = argvbase - sizeof(size_t);
+	*(size_t*)pargc = argc;
+	arch_setup_user_proc_trapframe(proc->tf, pargc, real_entry);
+	return 0;
+}
+#ifdef DYLIB_DEBUG
+#undef DYLIB_DEBUG
+#endif
+
+
 //#endif //UCONFIG_BIONIC_LIBC
 
 static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
@@ -1062,8 +1142,6 @@ static int load_icode(int fd, int argc, char **kargv, int envc, char **kenvp)
 				     bias) < 0)
 		goto bad_cleanup_mmap;
 #else
-	//if (init_new_context(current, elf, argc, kargv, envc, kenvp) < 0)
-		//goto bad_cleanup_mmap;
 	if (init_new_process_context(current, elf, argc, kargv, envc, kenvp,
 		     is_dynamic, real_entry, load_address,
 		     bias) < 0)

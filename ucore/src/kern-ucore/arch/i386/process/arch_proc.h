@@ -23,16 +23,5 @@ struct context {
 
 struct arch_proc_struct {
 };
-int init_new_process_context(
-		struct proc_struct *proc,
-		struct elfhdr *elf,
-		uint32_t argc,
-		char **kargv,
-		uint32_t envc,
-		char **kenvv,
-		uint32_t is_dynamic,
-		uintptr_t interp_entry,
-		uintptr_t userp_base,
-		uintptr_t interp_base
-		) ;
+void arch_setup_user_proc_trapframe(struct trapframe* tf, uintptr_t stacktop, uintptr_t entry);
 #endif /* !__ARCH_X86_INCLUDE_ARCH_PROC_H__ */
